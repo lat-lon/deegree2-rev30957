@@ -138,10 +138,14 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
         }
         ComplexFilter filter = new ComplexFilter( operation );
 
-        // sort result by displayed property
-        PropertyPath sortProperty = createPropertyPath( properties.get( "DisplayName" ) );
-        SortProperty[] sp = new SortProperty[] { SortProperty.create( sortProperty, "ASC" ) };
-
+		// sort result by sort property
+		SortProperty[] sp = null;
+		String sortPropertyName = properties.get("SortProperty");
+		if (sortPropertyName != null && sortPropertyName.length() > 0) {
+			PropertyPath sortProperty = createPropertyPath(sortPropertyName);
+			sp = new SortProperty[] { SortProperty.create(sortProperty, "ASC") };
+		}
+        
         // select just properties needed to fill result list
         PropertyPath[] propertyNames = getResultProperties( properties );
 
