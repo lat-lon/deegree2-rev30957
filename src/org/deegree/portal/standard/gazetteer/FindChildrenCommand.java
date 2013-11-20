@@ -93,9 +93,14 @@ public class FindChildrenCommand extends AbstractGazetteerCommand {
         WFSCapabilities capabilities = capabilitiesMap.get( gazetteerAddress );
 
         PropertyName propertyName = new PropertyName( createPropertyPath( properties.get( "ParentIdentifier" ) ) );
-
-        PropertyPath sortProperty = createPropertyPath( properties.get( "DisplayName" ) );
-        SortProperty[] sp = new SortProperty[] { SortProperty.create( sortProperty, "ASC" ) };
+        
+		// sort result by sort property
+		SortProperty[] sp = null;
+		String sortPropertyName = properties.get("SortProperty");
+		if (sortPropertyName != null && sortPropertyName.length() > 0) {
+			PropertyPath sortProperty = createPropertyPath(sortPropertyName);
+			sp = new SortProperty[] { SortProperty.create(sortProperty, "ASC") };
+		}
 
         Literal literal = new Literal( geographicIdentifier );
         Operation operation = new PropertyIsCOMPOperation( OperationDefines.PROPERTYISEQUALTO, propertyName, literal );

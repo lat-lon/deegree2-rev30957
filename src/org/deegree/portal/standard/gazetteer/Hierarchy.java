@@ -135,6 +135,7 @@ public class Hierarchy {
         String geoExtPr = XMLTools.getRequiredNodeAsString( ftnode, "./GeographicExtent/@property", nsc );
         String highlightGeometry = XMLTools.getNodeAsString( ftnode, "./HighlightGeometry/@property", nsc, geoExtPr );
         String posPr = XMLTools.getNodeAsString( ftnode, "./Position/@property", nsc, null );
+        String sortProperty = XMLTools.getNodeAsString( ftnode, "./SortProperty/@property", nsc, geogrIdPr );
         Map<String, String> properties = new HashMap<String, String>();
         properties.put( "GeographicIdentifier", geogrIdPr );
         properties.put( "AlternativeGeographicIdentifier", altGeogrIdPr );
@@ -143,6 +144,7 @@ public class Hierarchy {
         properties.put( "Position", posPr );
         properties.put( "DisplayName", displayName );
         properties.put( "HighlightGeometry", highlightGeometry );
+        properties.put( "SortProperty", sortProperty);
         return properties;
     }
 
