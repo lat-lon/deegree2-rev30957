@@ -72,8 +72,8 @@ final public class ParameterList {
      * @param value
      *
      */
-    public void addParameter( String name, Object value ) {
-        Parameter p = new Parameter( name, value );
+    public void addParameter( String name, Object value , boolean isConstructorRelevant) {
+        Parameter p = new Parameter( name, value, isConstructorRelevant );
         addParameter( p );
     }
 

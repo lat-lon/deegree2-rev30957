@@ -534,7 +534,7 @@ public class FullScreenListener extends AbstractContextListener {
             }
         }
 
-        Parameter param = new Parameter( ContextMessages.getString( "NORMAL_SIZE_SCREEN" ), "PushButton" );
+        Parameter param = new Parameter( ContextMessages.getString( "NORMAL_SIZE_SCREEN" ), "PushButton" , true);
         toolBar.addParameter( param );
 
         return fullscreenContext;

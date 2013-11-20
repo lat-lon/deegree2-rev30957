@@ -1385,6 +1385,7 @@ public class XMLFactory {
             for ( int i = 0; i < pars.length; i++ ) {
                 if ( pars[i] != null ) {
                     Element p = createElement( D_CONTEXT_NS, "deegree:Parameter" );
+                    p.setAttribute( "isConstructorRelevant", Boolean.toString(pars[i].isConstructorRelevant()) );
 
                     Element n = createElement( D_CONTEXT_NS, "deegree:Name" );
                     String name = pars[i].getName();

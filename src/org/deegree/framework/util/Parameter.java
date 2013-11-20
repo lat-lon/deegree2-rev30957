@@ -50,13 +50,16 @@ public class Parameter {
 
     private Object value = null;
 
+	private final boolean isConstructorRelevant;
+
     /**
      * @param name of the value
      * @param value the value
      */
-    public Parameter( String name, Object value ) {
+    public Parameter( String name, Object value, boolean isConstructorRelevant ) {
         this.name = name;
         this.value = value;
+		this.isConstructorRelevant = isConstructorRelevant;
     }
 
     /**
@@ -80,5 +83,9 @@ public class Parameter {
         ret += "value = " + value + "\n";
         return ret;
     }
+
+	public boolean isConstructorRelevant() {
+		return isConstructorRelevant;
+	}
 
 }

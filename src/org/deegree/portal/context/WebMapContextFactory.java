@@ -35,6 +35,8 @@
  ----------------------------------------------------------------------------*/
 package org.deegree.portal.context;
 
+import static java.lang.Boolean.parseBoolean;
+
 import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
@@ -927,11 +929,11 @@ public class WebMapContextFactory {
      */
     private static Parameter createParameter( Element element )
                             throws XMLParsingException {
-
+    	boolean isConstructorRelevant = parseBoolean( XMLTools.getAttrValue(element, null, "isConstructorRelevant", "true") ); 
         String name = XMLTools.getRequiredStringValue( "Name", CommonNamespaces.DGCNTXTNS, element );
         String value = XMLTools.getRequiredStringValue( "Value", CommonNamespaces.DGCNTXTNS, element );
         // Parameter param = new Parameter_Impl( name+":"+value, value );
-        Parameter param = new Parameter( name, value );
+        Parameter param = new Parameter( name, value , isConstructorRelevant);
 
         return param;
     }
