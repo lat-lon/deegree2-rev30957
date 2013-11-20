@@ -35,6 +35,8 @@
  ----------------------------------------------------------------------------*/
 package org.deegree.portal.standard.gazetteer;
 
+import static java.lang.String.valueOf;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +68,13 @@ import org.deegree.ogcwebservices.wfs.operation.GetFeature.RESULT_TYPE;
  */
 public class FindItemsCommand extends AbstractGazetteerCommand {
 
-    private String searchString;
+    static final char DEFAULT_ESCAPE_CHAR = '/';
+
+	static final char DEFAULT_SINGLE_CHAR = '?';
+
+	static final char DEFAULT_WILD_CARD = '*';
+
+	private String searchString;
 
     private boolean searchOnAltName;
 
@@ -75,6 +83,12 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
 
     private boolean matchCase;
 
+    private char escapeChar;
+
+    private char wildCard;
+
+    private char singleChar;
+    
     /**
      * 
      * @param gazetteerAddress
@@ -91,6 +105,30 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
      */
     FindItemsCommand( String gazetteerAddress, QualifiedName featureType, Map<String, String> properties,
                       String searchString, boolean searchOnAltName, boolean strict, boolean phonetic, boolean matchCase ) {
+        this( gazetteerAddress, featureType, properties, searchString, searchOnAltName, strict, phonetic, matchCase,
+              DEFAULT_ESCAPE_CHAR, DEFAULT_SINGLE_CHAR, DEFAULT_WILD_CARD );
+    }
+    
+    /**
+     * 
+     * @param gazetteerAddress
+     * @param featureType
+     * @param properties
+     * @param searchString
+     * @param searchOnAltName
+     *            if true alternativeGeographicIdentifier will be included into search
+     * @param strict
+     *            if false wild cards will be added to search string
+     * @param phonetic
+     *            if true soundex will be used for searching (gazetteer/featuetype must support this)
+     * @param matchCase
+     * @param escapeChar
+     * @param singleChar
+     * @param wildCard
+     */
+    FindItemsCommand( String gazetteerAddress, QualifiedName featureType, Map<String, String> properties,
+                      String searchString, boolean searchOnAltName, boolean strict, boolean phonetic,
+                      boolean matchCase, char escapeChar, char singleChar, char wildCard ) {
         this.gazetteerAddress = gazetteerAddress;
         this.featureType = featureType;
         this.searchString = searchString;
@@ -98,9 +136,14 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
         this.properties = properties;
         this.phonetic = phonetic;
         this.matchCase = matchCase;
-        if ( !strict && !searchString.trim().equalsIgnoreCase( "*" ) ) {
-            this.searchString = StringTools.replace( searchString, "*", "/*", true );
-            this.searchString = "*" + this.searchString + "*";
+        this.escapeChar = escapeChar;
+        this.singleChar = singleChar;
+        this.wildCard = wildCard;
+        escapeChar = singleChar;
+        if ( !strict && !searchString.trim().equalsIgnoreCase( valueOf( wildCard ) ) ) {
+            String escapedWildCard = valueOf( escapeChar ) + valueOf( wildCard );
+            this.searchString = StringTools.replace( searchString, valueOf( wildCard ), escapedWildCard, true );
+            this.searchString = wildCard + this.searchString + wildCard;
         }
     }
 
@@ -123,7 +166,8 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
         PropertyName propertyName = new PropertyName( createPropertyPath( properties.get( "GeographicIdentifier" ) ) );
 
         Literal literal = new Literal( searchString );
-        Operation operation = new PropertyIsLikeOperation( propertyName, literal, '*', '?', '/', matchCase );
+        Operation operation = new PropertyIsLikeOperation( propertyName, literal, wildCard, singleChar, escapeChar,
+                                                           matchCase );
 
         if ( searchOnAltName && properties.get( "AlternativeGeographicIdentifier" ) != null ) {
             // if search should be performed on alternativeGeographicIdentifier too
@@ -132,7 +176,7 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
             opList.add( operation );
             propertyName = new PropertyName( createPropertyPath( properties.get( "AlternativeGeographicIdentifier" ) ) );
             literal = new Literal( searchString );
-            operation = new PropertyIsLikeOperation( propertyName, literal, '*', '?', '/', matchCase );
+            operation = new PropertyIsLikeOperation( propertyName, literal, wildCard, singleChar, escapeChar, matchCase );
             opList.add( operation );
             operation = new LogicalOperation( OperationDefines.OR, opList );
         }
