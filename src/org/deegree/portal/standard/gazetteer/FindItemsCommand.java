@@ -36,6 +36,9 @@
 package org.deegree.portal.standard.gazetteer;
 
 import static java.lang.String.valueOf;
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_ESCAPE_CHAR;
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_SINGLE_CHAR;
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_WILD_CARD;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,8 +58,8 @@ import org.deegree.ogcbase.PropertyPath;
 import org.deegree.ogcbase.SortProperty;
 import org.deegree.ogcwebservices.wfs.capabilities.WFSCapabilities;
 import org.deegree.ogcwebservices.wfs.operation.GetFeature;
-import org.deegree.ogcwebservices.wfs.operation.Query;
 import org.deegree.ogcwebservices.wfs.operation.GetFeature.RESULT_TYPE;
+import org.deegree.ogcwebservices.wfs.operation.Query;
 
 /**
  * TODO add class documentation here
@@ -67,12 +70,6 @@ import org.deegree.ogcwebservices.wfs.operation.GetFeature.RESULT_TYPE;
  * @version $Revision: 23405 $, $Date: 2010-04-07 10:31:17 +0200 (Mi, 07. Apr 2010) $
  */
 public class FindItemsCommand extends AbstractGazetteerCommand {
-
-    static final char DEFAULT_ESCAPE_CHAR = '/';
-
-	static final char DEFAULT_SINGLE_CHAR = '?';
-
-	static final char DEFAULT_WILD_CARD = '*';
 
 	private String searchString;
 

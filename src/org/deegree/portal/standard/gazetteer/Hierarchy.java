@@ -35,6 +35,10 @@
  ----------------------------------------------------------------------------*/
 package org.deegree.portal.standard.gazetteer;
 
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_ESCAPE_CHAR;
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_SINGLE_CHAR;
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_WILD_CARD;
+
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -97,9 +101,9 @@ public class Hierarchy {
         name = XMLTools.getAttrValue( node, null, "name", null );
         gazetteerAddress = XMLTools.getAttrValue( node, null, "address", null );
         
-        escapeChar = parseAttributeAsChar( node, "escapeChar", FindItemsCommand.DEFAULT_ESCAPE_CHAR );
-        singleChar = parseAttributeAsChar( node, "singleChar", FindItemsCommand.DEFAULT_SINGLE_CHAR );
-        wildCard = parseAttributeAsChar( node, "wildCard", FindItemsCommand.DEFAULT_WILD_CARD );
+        escapeChar = parseAttributeAsChar( node, "escapeChar", DEFAULT_ESCAPE_CHAR );
+        singleChar = parseAttributeAsChar( node, "singleChar", DEFAULT_SINGLE_CHAR );
+        wildCard = parseAttributeAsChar( node, "wildCard", DEFAULT_WILD_CARD );
         
         node = (Element) XMLTools.getNode( node, "Type", CommonNamespaces.getNamespaceContext() );
 

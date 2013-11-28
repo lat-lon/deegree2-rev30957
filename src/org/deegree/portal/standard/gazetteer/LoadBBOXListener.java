@@ -94,7 +94,7 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
             responseHandler.writeAndClose( "ERROR: can not load hierarchy list" );
             return;
         }
-        
+
         HierarchyNode node = hierarchy.getRoot();
         int k = 0;
         while ( node != null && k < index ) {
@@ -103,7 +103,8 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
         }
         QualifiedName ft = node.getFeatureType();
         LoadBBOXCommand cmd = new LoadBBOXCommand( hierarchy.getGazetteerAddress(), ft, node.getProperties(),
-                                                   geographicIdentifier );
+                                                   geographicIdentifier, hierarchy.getEscapeChar(),
+                                                   hierarchy.getSingleChar(), hierarchy.getWildCard() );
         Envelope env = null;
         Pair<Geometry, Geometry> geometries = null;
         try {
@@ -125,7 +126,7 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
                                            + geographicIdentifier );
             return;
         }
-        
+
         CoordinateSystem crs = vc.getGeneral().getBoundingBox()[0].getCoordinateSystem();
         if ( !crs.equals( env.getCoordinateSystem() ) ) {
             GeoTransformer gt = new GeoTransformer( crs );
@@ -136,11 +137,12 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
                 LOG.logError( e );
                 responseHandler.writeAndClose( "ERROR: can not transform geographic extent into map CRS" );
                 return;
-            } 
+            }
         } else {
             event.getSession().setAttribute( "TEMP_WMS_GEOMETRY", geometries.first );
         }
-        responseHandler.writeAndClose( env.getMin().getX() + "," + env.getMin().getY() + "," + env.getMax().getX()+ "," + env.getMax().getY() );
+        responseHandler.writeAndClose( env.getMin().getX() + "," + env.getMin().getY() + "," + env.getMax().getX()
+                                       + "," + env.getMax().getY() );
     }
 
 }
