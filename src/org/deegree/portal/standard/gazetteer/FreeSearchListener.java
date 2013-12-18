@@ -97,7 +97,9 @@ public class FreeSearchListener extends AbstractGazetteerListener {
         }
         QualifiedName ft = node.getFeatureType();
         FindItemsCommand cmd = new FindItemsCommand( hierarchy.getGazetteerAddress(), ft, node.getProperties(),
-                                                     searchString, true, node.isStricMode(), false, node.isMatchCase() );
+                                                     searchString, true, node.isStricMode(), false, node.isMatchCase(),
+                                                     hierarchy.getEscapeChar(), hierarchy.getSingleChar(),
+                                                     hierarchy.getWildCard() );
         List<GazetteerItem> items;
         try {
             items = cmd.execute();

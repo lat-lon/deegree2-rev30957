@@ -35,6 +35,10 @@
  ----------------------------------------------------------------------------*/
 package org.deegree.portal.standard.gazetteer;
 
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_ESCAPE_CHAR;
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_SINGLE_CHAR;
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_WILD_CARD;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -55,8 +59,8 @@ import org.deegree.ogcbase.PropertyPath;
 import org.deegree.ogcbase.PropertyPathStep;
 import org.deegree.ogcwebservices.wfs.capabilities.WFSCapabilities;
 import org.deegree.ogcwebservices.wfs.operation.GetFeature;
-import org.deegree.ogcwebservices.wfs.operation.Query;
 import org.deegree.ogcwebservices.wfs.operation.GetFeature.RESULT_TYPE;
+import org.deegree.ogcwebservices.wfs.operation.Query;
 
 /**
  * TODO add class documentation here
@@ -70,6 +74,12 @@ public class LoadBBOXCommand extends AbstractGazetteerCommand {
 
     private String geogrId;
 
+    private char escapeChar;
+
+    private char singleChar;
+
+    private char wildCard;
+
     /**
      * 
      * @param gazetteerAddress
@@ -78,10 +88,28 @@ public class LoadBBOXCommand extends AbstractGazetteerCommand {
      * @param geogrId
      */
     LoadBBOXCommand( String gazetteerAddress, QualifiedName featureType, Map<String, String> properties, String geogrId ) {
+        this( gazetteerAddress, featureType, properties, geogrId, DEFAULT_ESCAPE_CHAR, DEFAULT_SINGLE_CHAR,
+              DEFAULT_WILD_CARD );
+    }
+
+    /**
+     * @param gazetteerAddress
+     * @param featureType
+     * @param properties
+     * @param geogrId
+     * @param escapeChar
+     * @param singleChar
+     * @param wildCard
+     */
+    LoadBBOXCommand( String gazetteerAddress, QualifiedName featureType, Map<String, String> properties,
+                     String geogrId, char escapeChar, char singleChar, char wildCard ) {
         this.gazetteerAddress = gazetteerAddress;
         this.featureType = featureType;
         this.geogrId = geogrId;
         this.properties = properties;
+        this.escapeChar = escapeChar;
+        this.singleChar = singleChar;
+        this.wildCard = wildCard;
     }
 
     /**
@@ -106,7 +134,7 @@ public class LoadBBOXCommand extends AbstractGazetteerCommand {
             propertyName = new PropertyName( new QualifiedName( tmp, featureType.getNamespace() ) );
         }
         Literal literal = new Literal( geogrId );
-        Operation operation = new PropertyIsLikeOperation( propertyName, literal, '*', '?', '/' );
+        Operation operation = new PropertyIsLikeOperation( propertyName, literal, wildCard, singleChar, escapeChar );
         ComplexFilter filter = new ComplexFilter( operation );
 
         // select just properties needed to fill result list

@@ -35,6 +35,10 @@
  ----------------------------------------------------------------------------*/
 package org.deegree.portal.standard.gazetteer;
 
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_ESCAPE_CHAR;
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_SINGLE_CHAR;
+import static org.deegree.portal.standard.gazetteer.GazetteerUtils.DEFAULT_WILD_CARD;
+
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -77,6 +81,12 @@ public class Hierarchy {
 
     private HierarchyNode root;
 
+    private final char escapeChar;
+
+    private final char wildCard;
+
+    private final char singleChar;
+
     /**
      * <pre>
      * 
@@ -90,6 +100,11 @@ public class Hierarchy {
         Element node = xml.getRootElement();
         name = XMLTools.getAttrValue( node, null, "name", null );
         gazetteerAddress = XMLTools.getAttrValue( node, null, "address", null );
+        
+        escapeChar = parseAttributeAsChar( node, "escapeChar", DEFAULT_ESCAPE_CHAR );
+        singleChar = parseAttributeAsChar( node, "singleChar", DEFAULT_SINGLE_CHAR );
+        wildCard = parseAttributeAsChar( node, "wildCard", DEFAULT_WILD_CARD );
+        
         node = (Element) XMLTools.getNode( node, "Type", CommonNamespaces.getNamespaceContext() );
 
         String nm = XMLTools.getAttrValue( node, null, "name", null );
@@ -123,6 +138,13 @@ public class Hierarchy {
             parent = hn;
             node = (Element) XMLTools.getNode( node, "Type", CommonNamespaces.getNamespaceContext() );
         }
+    }
+
+    private char parseAttributeAsChar( Element node, String attributeName, char defaultValue ) {
+        String attributeValue = XMLTools.getAttrValue( node, null, attributeName, null );
+        if ( attributeValue != null && attributeValue.length() > 0 )
+            return attributeValue.charAt( 0 );
+        return defaultValue;
     }
 
     private Map<String, String> readPropertyNames( NamespaceContext nsc, Element ftnode )
@@ -168,6 +190,27 @@ public class Hierarchy {
      */
     public String getName() {
         return name;
+    }
+
+    /**
+     * @return escape char
+     */
+    public char getEscapeChar() {
+        return escapeChar;
+    }
+
+    /**
+     * @return wild card
+     */
+    public char getWildCard() {
+        return wildCard;
+    }
+
+    /**
+     * @return single char
+     */
+    public char getSingleChar() {
+        return singleChar;
     }
 
     /**
