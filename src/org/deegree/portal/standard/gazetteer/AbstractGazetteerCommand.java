@@ -160,10 +160,7 @@ abstract class AbstractGazetteerCommand {
             String displayName = (String) feature.getDefaultProperty( disp ).getValue();
             String altGeoId = null;
             if ( gai != null ) {
-                FeatureProperty fp = feature.getDefaultProperty( gai );
-                if ( fp != null ) {
-                    altGeoId = (String) fp.getValue();
-                }
+                altGeoId = parseAlternativeGeographicIdentifiers( feature, gai );
             }
             items.add( new GazetteerItem( gmlID, geoId, altGeoId, displayName ) );
         }
@@ -225,6 +222,69 @@ abstract class AbstractGazetteerCommand {
         }
 
         return new PropertyPath( steps );
+    }
+
+    private String parseAlternativeGeographicIdentifiers( Feature feature, PropertyPath pp )
+                            throws PropertyPathResolvingException {
+        if ( pp.getSteps() > 1 ) {
+            return parseSingleAlternativeIdentifierFromPath( feature, pp );
+        } else if ( pp.getSteps() == 1 ) {
+            return parseMultipleAlternativeIdentifiersFromQualifiedName( feature, pp );
+        }
+        return null;
+    }
+
+    private String parseSingleAlternativeIdentifierFromPath( Feature feature, PropertyPath pp )
+                            throws PropertyPathResolvingException {
+        FeatureProperty fp = feature.getDefaultProperty( pp );
+        if ( fp != null ) {
+            return (String) fp.getValue();
+        }
+        return null;
+    }
+
+    private String parseMultipleAlternativeIdentifiersFromQualifiedName( Feature feature, PropertyPath pp ) {
+        QualifiedName qualifiedName = pp.getStep( 0 ).getPropertyName();
+        FeatureProperty[] altProps = feature.getProperties( qualifiedName );
+        if ( altProps != null ) {
+            StringBuilder alternativeIdentifier = new StringBuilder();
+            for ( FeatureProperty featureProperty : altProps ) {
+                String propValue = extractPropertyValue( featureProperty.getValue() );
+                appendPropertyValue( alternativeIdentifier, propValue );
+            }
+            return alternativeIdentifier.toString();
+        }
+        return null;
+    }
+
+    private void appendPropertyValue( StringBuilder alternativeIdentifier, String propValue ) {
+        if ( propValue != null ) {
+            if ( !alternativeIdentifier.toString().isEmpty() )
+                alternativeIdentifier.append( ", " );
+            alternativeIdentifier.append( propValue );
+        }
+    }
+
+    private String extractPropertyValue( Object value ) {
+        if ( value instanceof Feature ) {
+            return extractPropertyValue( (Feature) value );
+        } else if ( value instanceof FeatureProperty ) {
+            return extractPropertyValue( (FeatureProperty) value );
+        }
+        return null;
+    }
+
+    private String extractPropertyValue( Feature feature ) {
+        FeatureProperty[] properties = feature.getProperties();
+        if ( properties != null && properties.length == 1 )
+            return extractPropertyValue( properties[0] );
+        return null;
+    }
+
+    private String extractPropertyValue( FeatureProperty featureProperty ) {
+        if ( featureProperty instanceof FeatureProperty )
+            return featureProperty.getValue().toString();
+        return null;
     }
 
 }
