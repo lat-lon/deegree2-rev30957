@@ -80,7 +80,8 @@ public class LayerTreeListener extends AbstractListener {
         // return all nodes for root
         MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
         List<LayerGroup> layerGroups = mapModel.getLayerGroups();
-        for ( LayerGroup lg : layerGroups ) {
+        for ( int i = 0; i < layerGroups.size(); i++ ) {
+            LayerGroup lg = layerGroups.get( i );
             sb.append( "{'text' : " );
             sb.append( "'" ).append( lg.getTitle() ).append( "'," );
             sb.append( "'id' : '" ).append( lg.getIdentifier() ).append( "'," );
@@ -89,7 +90,9 @@ public class LayerTreeListener extends AbstractListener {
             sb.append( "'leaf' : false, 'cls' : 'folder' " );
             appendChildren( sb, lg );
             sb.append( "}" );
-
+            if ( i < layerGroups.size() - 1 ) {
+                sb.append( ',' );
+            }
         }
         sb.append( ']' );
         String charEnc = Charset.defaultCharset().displayName();
