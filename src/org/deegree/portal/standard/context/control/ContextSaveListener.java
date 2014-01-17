@@ -116,6 +116,7 @@ public class ContextSaveListener extends AbstractContextListener {
         // forward to new page
         this.getRequest().setAttribute( Constants.MESSAGE,
                                         Messages.getMessage( "IGEO_STD_CNTXT_SUCCESS_SAVE_CNTXT", newContext ) );
+        this.getRequest().setAttribute( "newContext", newContext );
     }
 
     /**
