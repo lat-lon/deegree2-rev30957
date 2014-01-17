@@ -82,12 +82,17 @@ public class LayerTreeListener extends AbstractListener {
         List<LayerGroup> layerGroups = mapModel.getLayerGroups();
         for ( int i = 0; i < layerGroups.size(); i++ ) {
             LayerGroup lg = layerGroups.get( i );
+            List<MapModelEntry> mme = lg.getMapModelEntries();
+
             sb.append( "{'text' : " );
             sb.append( "'" ).append( lg.getTitle() ).append( "'," );
             sb.append( "'id' : '" ).append( lg.getIdentifier() ).append( "'," );
             sb.append( "'checked': true," );
             sb.append( "'expanded': " ).append( lg.isExpanded() ).append( "," );
             sb.append( "'leaf' : false, 'cls' : 'folder' " );
+            if ( mme.size() == 0 ) {
+                sb.append( ", 'children': [] " );
+            }
             appendChildren( sb, lg );
             sb.append( "}" );
             if ( i < layerGroups.size() - 1 ) {
@@ -143,12 +148,17 @@ public class LayerTreeListener extends AbstractListener {
                     }
                 } else {
                     LayerGroup lg = (LayerGroup) mme.get( i );
+                    List<MapModelEntry> children = lg.getMapModelEntries();
+
                     sb.append( "{'text' : " );
                     sb.append( "'" ).append( lg.getTitle() ).append( "'," );
                     sb.append( "'id' : '" ).append( lg.getIdentifier() ).append( "'," );
-                    sb.append( "'checked': " ).append( !lg.isHidden() ).append( "," );
+                    sb.append( "'checked': true," );
                     sb.append( "'expanded': " ).append( lg.isExpanded() ).append( "," );
                     sb.append( "'leaf' : false, 'cls' : 'folder' " );
+                    if ( children.size() == 0 ) {
+                        sb.append( ", 'children': [] " );
+                    }
                     appendChildren( sb, lg );
                     sb.append( "}" );
                     if ( i < mme.size() - 1 ) {
