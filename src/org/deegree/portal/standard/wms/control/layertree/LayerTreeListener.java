@@ -153,7 +153,7 @@ public class LayerTreeListener extends AbstractListener {
                     sb.append( "{'text' : " );
                     sb.append( "'" ).append( lg.getTitle() ).append( "'," );
                     sb.append( "'id' : '" ).append( lg.getIdentifier() ).append( "'," );
-                    sb.append( "'checked': true," );
+                    sb.append( "'checked': " ).append( !lg.isHidden() ).append( "," );
                     sb.append( "'expanded': " ).append( lg.isExpanded() ).append( "," );
                     sb.append( "'leaf' : false, 'cls' : 'folder' " );
                     if ( children.size() == 0 ) {
