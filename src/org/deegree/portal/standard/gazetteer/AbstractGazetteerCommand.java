@@ -76,6 +76,8 @@ import org.xml.sax.SAXException;
  */
 abstract class AbstractGazetteerCommand {
 
+    private static final String IS_MULTIPLE_CODE = "$MULTIPLE$:";
+
     private static final ILogger LOG = LoggerFactory.getLogger( AbstractGazetteerCommand.class );
 
     protected List<GazetteerItem> items;
@@ -147,9 +149,17 @@ abstract class AbstractGazetteerCommand {
         items = new ArrayList<GazetteerItem>( fc.size() );
         Iterator<Feature> iterator = fc.iterator();
         PropertyPath gi = createPropertyPath( properties.get( "GeographicIdentifier" ) );
+        boolean isMultipleAltIdentifier = false;
         PropertyPath gai = null;
-        if ( properties.get( "AlternativeGeographicIdentifier" ) != null ) {
-            gai = createPropertyPath( properties.get( "AlternativeGeographicIdentifier" ) );
+        String altIdentifierPropertyValue = properties.get( "AlternativeGeographicIdentifier" );
+        if ( altIdentifierPropertyValue != null ) {
+            if ( altIdentifierPropertyValue.startsWith( IS_MULTIPLE_CODE ) ) {
+                isMultipleAltIdentifier = true;
+                altIdentifierPropertyValue = altIdentifierPropertyValue.substring( IS_MULTIPLE_CODE.length() );
+                LOG.logInfo( "Parse all properties from path (only the first step is considered)."
+                             + altIdentifierPropertyValue );
+            }
+            gai = createPropertyPath( altIdentifierPropertyValue );
         }
         PropertyPath disp = createPropertyPath( properties.get( "DisplayName" ) );
 
@@ -160,7 +170,7 @@ abstract class AbstractGazetteerCommand {
             String displayName = (String) feature.getDefaultProperty( disp ).getValue();
             String altGeoId = null;
             if ( gai != null ) {
-                altGeoId = parseAlternativeGeographicIdentifiers( feature, gai );
+                altGeoId = parseAlternativeGeographicIdentifiers( feature, gai, isMultipleAltIdentifier );
             }
             items.add( new GazetteerItem( gmlID, geoId, altGeoId, displayName ) );
         }
@@ -224,14 +234,14 @@ abstract class AbstractGazetteerCommand {
         return new PropertyPath( steps );
     }
 
-    private String parseAlternativeGeographicIdentifiers( Feature feature, PropertyPath pp )
+    private String parseAlternativeGeographicIdentifiers( Feature feature, PropertyPath pp,
+                                                          boolean isMultipleAltIdentifier )
                             throws PropertyPathResolvingException {
-        if ( pp.getSteps() > 1 ) {
-            return parseSingleAlternativeIdentifierFromPath( feature, pp );
-        } else if ( pp.getSteps() == 1 ) {
+        if ( isMultipleAltIdentifier ) {
             return parseMultipleAlternativeIdentifiersFromQualifiedName( feature, pp );
+        } else {
+            return parseSingleAlternativeIdentifierFromPath( feature, pp );
         }
-        return null;
     }
 
     private String parseSingleAlternativeIdentifierFromPath( Feature feature, PropertyPath pp )
