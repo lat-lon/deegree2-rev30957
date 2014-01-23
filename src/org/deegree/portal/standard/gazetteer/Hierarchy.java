@@ -100,11 +100,11 @@ public class Hierarchy {
         Element node = xml.getRootElement();
         name = XMLTools.getAttrValue( node, null, "name", null );
         gazetteerAddress = XMLTools.getAttrValue( node, null, "address", null );
-        
+
         escapeChar = parseAttributeAsChar( node, "escapeChar", DEFAULT_ESCAPE_CHAR );
         singleChar = parseAttributeAsChar( node, "singleChar", DEFAULT_SINGLE_CHAR );
         wildCard = parseAttributeAsChar( node, "wildCard", DEFAULT_WILD_CARD );
-        
+
         node = (Element) XMLTools.getNode( node, "Type", CommonNamespaces.getNamespaceContext() );
 
         String nm = XMLTools.getAttrValue( node, null, "name", null );
@@ -152,6 +152,7 @@ public class Hierarchy {
         String geogrIdPr = XMLTools.getRequiredNodeAsString( ftnode, "./GeographicIdentifier/@property", nsc );
         String altGeogrIdPr = XMLTools.getNodeAsString( ftnode, "./AlternativeGeographicIdentifier/@property", nsc,
                                                         null );
+        String tooltipName = XMLTools.getNodeAsString( ftnode, "./TooltipName/@property", nsc, geogrIdPr );
         String displayName = XMLTools.getNodeAsString( ftnode, "./DisplayName/@property", nsc, geogrIdPr );
         String parentIdPr = XMLTools.getNodeAsString( ftnode, "./ParentIdentifier/@property", nsc, null );
         String geoExtPr = XMLTools.getRequiredNodeAsString( ftnode, "./GeographicExtent/@property", nsc );
@@ -165,8 +166,9 @@ public class Hierarchy {
         properties.put( "GeographicExtent", geoExtPr );
         properties.put( "Position", posPr );
         properties.put( "DisplayName", displayName );
+        properties.put( "TooltipName", tooltipName );
         properties.put( "HighlightGeometry", highlightGeometry );
-        properties.put( "SortProperty", sortProperty);
+        properties.put( "SortProperty", sortProperty );
         return properties;
     }
 

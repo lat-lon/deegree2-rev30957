@@ -35,7 +35,6 @@
  ----------------------------------------------------------------------------*/
 package org.deegree.portal.standard.gazetteer;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
@@ -44,12 +43,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.httpclient.HttpException;
 import org.deegree.datatypes.QualifiedName;
 import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
 import org.deegree.framework.util.HttpUtils;
-import org.deegree.framework.xml.XMLException;
 import org.deegree.io.datastore.PropertyPathResolvingException;
 import org.deegree.model.feature.Feature;
 import org.deegree.model.feature.FeatureCollection;
@@ -64,7 +61,6 @@ import org.deegree.ogcwebservices.wfs.XMLFactory;
 import org.deegree.ogcwebservices.wfs.capabilities.WFSCapabilities;
 import org.deegree.ogcwebservices.wfs.capabilities.WFSCapabilitiesDocument;
 import org.deegree.ogcwebservices.wfs.operation.GetFeature;
-import org.xml.sax.SAXException;
 
 /**
  * TODO add class documentation here
@@ -75,8 +71,6 @@ import org.xml.sax.SAXException;
  * @version $Revision: 26184 $, $Date: 2010-08-26 14:36:05 +0200 (Do, 26. Aug 2010) $
  */
 abstract class AbstractGazetteerCommand {
-
-    private static final String IS_MULTIPLE_CODE = "$MULTIPLE$:";
 
     private static final ILogger LOG = LoggerFactory.getLogger( AbstractGazetteerCommand.class );
 
@@ -96,13 +90,6 @@ abstract class AbstractGazetteerCommand {
         }
     }
 
-    /**
-     * @throws IOException
-     * @throws HttpException
-     * @throws SAXException
-     * @throws XMLException
-     * 
-     */
     protected void loadCapabilities()
                             throws Exception {
         InputStream is = HttpUtils.performHttpGet( gazetteerAddress, "request=GetCapabilities&service=WFS", 60000,
@@ -149,18 +136,8 @@ abstract class AbstractGazetteerCommand {
         items = new ArrayList<GazetteerItem>( fc.size() );
         Iterator<Feature> iterator = fc.iterator();
         PropertyPath gi = createPropertyPath( properties.get( "GeographicIdentifier" ) );
-        boolean isMultipleAltIdentifier = false;
-        PropertyPath gai = null;
-        String altIdentifierPropertyValue = properties.get( "AlternativeGeographicIdentifier" );
-        if ( altIdentifierPropertyValue != null ) {
-            if ( altIdentifierPropertyValue.startsWith( IS_MULTIPLE_CODE ) ) {
-                isMultipleAltIdentifier = true;
-                altIdentifierPropertyValue = altIdentifierPropertyValue.substring( IS_MULTIPLE_CODE.length() );
-                LOG.logInfo( "Parse all properties from path (only the first step is considered)."
-                             + altIdentifierPropertyValue );
-            }
-            gai = createPropertyPath( altIdentifierPropertyValue );
-        }
+        PropertyPath gai = parseAsPropertyPath( properties.get( "AlternativeGeographicIdentifier" ) );
+        PropertyPath tooltip = parseAsPropertyPath( properties.get( "TooltipName" ) );
         PropertyPath disp = createPropertyPath( properties.get( "DisplayName" ) );
 
         while ( iterator.hasNext() ) {
@@ -168,18 +145,11 @@ abstract class AbstractGazetteerCommand {
             String gmlID = feature.getId();
             String geoId = feature.getDefaultProperty( gi ).getValue().toString();
             String displayName = (String) feature.getDefaultProperty( disp ).getValue();
-            String altGeoId = null;
-            if ( gai != null ) {
-                altGeoId = parseAlternativeGeographicIdentifiers( feature, gai, isMultipleAltIdentifier );
-            }
+            String altGeoId = parseAlternativeGeographicIdentifiers( feature, gai, tooltip );
             items.add( new GazetteerItem( gmlID, geoId, altGeoId, displayName ) );
         }
     }
 
-    /**
-     * @param properties
-     * @return
-     */
     protected PropertyPath[] getResultProperties( Map<String, String> properties ) {
         List<PropertyPath> pathes = new ArrayList<PropertyPath>();
 
@@ -234,27 +204,42 @@ abstract class AbstractGazetteerCommand {
         return new PropertyPath( steps );
     }
 
-    private String parseAlternativeGeographicIdentifiers( Feature feature, PropertyPath pp,
-                                                          boolean isMultipleAltIdentifier )
+    private String parseAlternativeGeographicIdentifiers( Feature feature, PropertyPath alternativeIdentifier,
+                                                          PropertyPath tooltip )
                             throws PropertyPathResolvingException {
-        if ( isMultipleAltIdentifier ) {
-            return parseMultipleAlternativeIdentifiersFromQualifiedName( feature, pp );
+        if ( tooltip != null ) {
+            LOG.logDebug( "Parse alternative identifier from property TooltipName." );
+            return parseAlternativeIdentifiers( feature, tooltip );
+        } else if ( alternativeIdentifier != null ) {
+            LOG.logDebug( "Parse alternative identifier from property AlternativeGeographicIdentifier." );
+            return parseSingleAlternativeIdentifierFromPath( feature, alternativeIdentifier );
+        }
+        return null;
+    }
+
+    private String parseAlternativeIdentifiers( Feature feature, PropertyPath pathToParse )
+                            throws PropertyPathResolvingException {
+        LOG.logDebug( "Number of steps in the PropertyPath: " + pathToParse.getSteps() );
+        if ( pathToParse.getSteps() == 1 ) {
+            LOG.logDebug( "Parse multiple alternative identifiers." );
+            return parseMultipleAlternativeIdentifierFromQualifiedName( feature, pathToParse );
         } else {
-            return parseSingleAlternativeIdentifierFromPath( feature, pp );
+            LOG.logDebug( "Parse single alternative identifier." );
+            return parseSingleAlternativeIdentifierFromPath( feature, pathToParse );
         }
     }
 
-    private String parseSingleAlternativeIdentifierFromPath( Feature feature, PropertyPath pp )
+    private String parseSingleAlternativeIdentifierFromPath( Feature feature, PropertyPath pathToParse )
                             throws PropertyPathResolvingException {
-        FeatureProperty fp = feature.getDefaultProperty( pp );
+        FeatureProperty fp = feature.getDefaultProperty( pathToParse );
         if ( fp != null ) {
             return (String) fp.getValue();
         }
         return null;
     }
 
-    private String parseMultipleAlternativeIdentifiersFromQualifiedName( Feature feature, PropertyPath pp ) {
-        QualifiedName qualifiedName = pp.getStep( 0 ).getPropertyName();
+    private String parseMultipleAlternativeIdentifierFromQualifiedName( Feature feature, PropertyPath pathToParse ) {
+        QualifiedName qualifiedName = pathToParse.getStep( 0 ).getPropertyName();
         FeatureProperty[] altProps = feature.getProperties( qualifiedName );
         if ( altProps != null ) {
             StringBuilder alternativeIdentifier = new StringBuilder();
@@ -269,10 +254,17 @@ abstract class AbstractGazetteerCommand {
 
     private void appendPropertyValue( StringBuilder alternativeIdentifier, String propValue ) {
         if ( propValue != null ) {
-            if ( !alternativeIdentifier.toString().isEmpty() )
+            if ( !"".equals( alternativeIdentifier.toString() ) )
                 alternativeIdentifier.append( ", " );
             alternativeIdentifier.append( propValue );
         }
+    }
+
+    private PropertyPath parseAsPropertyPath( String path ) {
+        if ( path != null ) {
+            return createPropertyPath( path );
+        }
+        return null;
     }
 
     private String extractPropertyValue( Object value ) {
