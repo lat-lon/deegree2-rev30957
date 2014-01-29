@@ -152,7 +152,7 @@ public class Hierarchy {
         String geogrIdPr = XMLTools.getRequiredNodeAsString( ftnode, "./GeographicIdentifier/@property", nsc );
         String altGeogrIdPr = XMLTools.getNodeAsString( ftnode, "./AlternativeGeographicIdentifier/@property", nsc,
                                                         null );
-        String tooltipName = XMLTools.getNodeAsString( ftnode, "./TooltipName/@property", nsc, geogrIdPr );
+        String tooltipName = XMLTools.getNodeAsString( ftnode, "./TooltipName/@property", nsc, null );
         String displayName = XMLTools.getNodeAsString( ftnode, "./DisplayName/@property", nsc, geogrIdPr );
         String parentIdPr = XMLTools.getNodeAsString( ftnode, "./ParentIdentifier/@property", nsc, null );
         String geoExtPr = XMLTools.getRequiredNodeAsString( ftnode, "./GeographicExtent/@property", nsc );
