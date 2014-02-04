@@ -165,6 +165,12 @@ abstract class AbstractGazetteerCommand {
             pathes.add( createPropertyPath( tmp ) );
         }
 
+        tmp = properties.get( "TooltipName" );
+        if ( tmp != null && !tmp.equals( properties.get( "GeographicIdentifier" ) )
+             && !tmp.equals( properties.get( "AlternativeGeographicIdentifier" ) ) ) {
+            pathes.add( createPropertyPath( tmp ) );
+        }
+        
         return pathes.toArray( new PropertyPath[pathes.size()] );
     }
 
