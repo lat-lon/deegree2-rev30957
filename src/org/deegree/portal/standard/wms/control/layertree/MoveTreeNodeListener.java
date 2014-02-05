@@ -85,13 +85,20 @@ public class MoveTreeNodeListener extends AbstractListener {
         ViewContext vc = (ViewContext) event.getSession().getAttribute( Constants.CURRENTMAPCONTEXT );
         MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
         MapModelEntry mme = mapModel.getMapModelEntryByIdentifier( node );
-        LayerGroup parent = (LayerGroup) mapModel.getMapModelEntryByIdentifier( parentNode );
-
+        
+        LayerGroup parent = null;
+        if (parentNode != "root") {
+            parent = (LayerGroup) mapModel.getMapModelEntryByIdentifier( parentNode );
+        }
+        
         if ( mme != null ) {
             // update tree/map model
             MapModelEntry antecessor = null;
-            if ( beforeNode != null && beforeNode.length() > 0) {
+            antecessor = mapModel.getMapModelEntryByIdentifier( beforeNode );
+/*
+            if ( beforeNode != null && beforeNode.length() > 0 && parent != null) {
                 antecessor = mapModel.getMapModelEntryByIdentifier( beforeNode );
+                
                 List<MapModelEntry> list = parent.getMapModelEntries();
 
                 for ( int i = 0; i < list.size(); i++ ) {
@@ -105,7 +112,8 @@ public class MoveTreeNodeListener extends AbstractListener {
                     }
                 }
             }
-            mapModel.move( mme, parent, antecessor, (beforeNode != null && beforeNode.length() > 0) );
+            */
+            mapModel.move( mme, parent, antecessor, true );
 
             // update WMC layer list
             LayerList layerList = vc.getLayerList();

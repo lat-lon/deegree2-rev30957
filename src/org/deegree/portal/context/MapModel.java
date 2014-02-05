@@ -170,20 +170,42 @@ public class MapModel {
      */
     private void insertLayerGroup( LayerGroup layerGroup, LayerGroup parent, MapModelEntry antecessor, boolean first ) {
         if ( parent == null ) {
-            layerGroups.add( layerGroup );
+            int i = 0;
+            if ( layerGroups.size() > 0 ) {
+                while ( i < layerGroups.size() && !layerGroups.get( i ).equals( antecessor ) ) {
+                    i++;
+                }
+            }
+            if ( i >= layerGroups.size() - 1 ) {
+                if ( first && antecessor == null ) {
+                    layerGroups.add( 0, layerGroup );
+                } else {
+                    layerGroups.add( layerGroup );
+                }
+            } else {
+                if ( first && antecessor == null ) {
+                    layerGroups.add( 0, layerGroup );
+                } else {
+                    layerGroups.add( i + 1, layerGroup );
+                }
+            }
         }
-        insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );
+        else {
+            insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );      
+        }
     }
 
     private void insertLayerGroup( LayerGroup lg, LayerGroup parent, MapModelEntry antecessor, List<LayerGroup> lgs,
                                    boolean first ) {
+
         for ( LayerGroup layerGroup : lgs ) {
             if ( parent != null && parent.equals( layerGroup ) ) {
                 layerGroup.insert( lg, antecessor, first );
                 break;
-            } else {
-                insertLayerGroup( lg, parent, antecessor, layerGroup.getLayerGroups(), first );
             }
+            //else {
+            //    insertLayerGroup( lg, parent, antecessor, layerGroup.getLayerGroups(), first );
+            //}
         }
     }
 
@@ -234,8 +256,14 @@ public class MapModel {
      */
     private void move( LayerGroup layerGroup, LayerGroup parent, MapModelEntry antecessor, boolean first ) {
         if ( !layerGroup.equals( antecessor ) ) {
-            layerGroup.getParent().removeLayerGroup( layerGroup );
-            insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );
+            if (layerGroup.getParent() != null) {
+                layerGroup.getParent().removeLayerGroup( layerGroup );
+                insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );
+            }
+            else {
+                layerGroups.remove(layerGroup);
+                insertLayerGroup( layerGroup, parent, antecessor, first );
+            }
         }
     }
 
@@ -312,6 +340,9 @@ public class MapModel {
             LayerGroup layerGroup = (LayerGroup) mapModelEntry;
             if ( layerGroup.getParent() != null ) {
                 layerGroup.getParent().removeLayerGroup( layerGroup );
+            }
+            else {
+                layerGroups.remove(layerGroup);
             }
         }
     }
