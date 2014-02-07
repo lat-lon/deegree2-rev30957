@@ -208,7 +208,7 @@ public class AddLayerListener extends AbstractListener {
                             throws Exception {
         LayerGroup lg = new LayerGroup( UUID.randomUUID().toString(), wmsName, false, true, null, mapModel );
         // add to root layer group
-        mapModel.insert( lg, mapModel.getLayerGroups().get( 0 ), null, true );
+        mapModel.insert( lg, null, null, true );
         return lg;
     }
 
