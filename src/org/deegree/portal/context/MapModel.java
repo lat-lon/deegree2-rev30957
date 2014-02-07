@@ -143,7 +143,31 @@ public class MapModel {
      *            if true layer will be inserted as first layer of a group if antecessor == null
      */
     private void insertLayer( MMLayer layer, LayerGroup parent, MapModelEntry antecessor, boolean first ) {
-        insertLayer( layer, parent, antecessor, layerGroups, first );
+        /*if ( parent == null ) {
+            int i = 0;
+            
+            if ( layerGroups.size() > 0 ) {
+                while ( i < layerGroups.size() && !layerGroups.get( i ).equals( antecessor ) ) {
+                    i++;
+                }
+            }
+            if ( i >= layerGroups.size() - 1 ) {
+                if ( first && antecessor == null ) {
+                    layerGroups.add( 0, layer );
+                } else {
+                    layerGroups.add( layer );
+                }
+            } else {
+                if ( first && antecessor == null ) {
+                    layerGroups.add( 0, layer );
+                } else {
+                    layerGroups.add( i + 1, layer );
+                }
+            }
+        }
+        else {*/
+            insertLayer( layer, parent, antecessor, layerGroups, first );
+        //}
     }
 
     private void insertLayer( MMLayer layer, LayerGroup parent, MapModelEntry antecessor, List<LayerGroup> lgs,
@@ -202,10 +226,9 @@ public class MapModel {
             if ( parent != null && parent.equals( layerGroup ) ) {
                 layerGroup.insert( lg, antecessor, first );
                 break;
+            } else {
+                insertLayerGroup( lg, parent, antecessor, layerGroup.getLayerGroups(), first );
             }
-            //else {
-            //    insertLayerGroup( lg, parent, antecessor, layerGroup.getLayerGroups(), first );
-            //}
         }
     }
 
@@ -240,8 +263,14 @@ public class MapModel {
      */
     private void move( MMLayer layer, LayerGroup parent, MapModelEntry antecessor, boolean first ) {
         if ( !layer.equals( antecessor ) ) {
-            layer.getParent().removeLayer( layer );
-            insertLayer( layer, parent, antecessor, layerGroups, first );
+            if (layer.getParent() != null) {
+                layer.getParent().removeLayer( layer );
+                insertLayer( layer, parent, antecessor, layerGroups, first );
+            }
+            else {
+                layerGroups.remove( layer );
+                insertLayer( layer, parent, antecessor, first );
+            }
         }
     }
 
