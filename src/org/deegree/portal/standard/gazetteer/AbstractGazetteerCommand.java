@@ -35,7 +35,6 @@
  ----------------------------------------------------------------------------*/
 package org.deegree.portal.standard.gazetteer;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
@@ -44,12 +43,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.httpclient.HttpException;
 import org.deegree.datatypes.QualifiedName;
 import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
 import org.deegree.framework.util.HttpUtils;
-import org.deegree.framework.xml.XMLException;
 import org.deegree.io.datastore.PropertyPathResolvingException;
 import org.deegree.model.feature.Feature;
 import org.deegree.model.feature.FeatureCollection;
@@ -64,7 +61,6 @@ import org.deegree.ogcwebservices.wfs.XMLFactory;
 import org.deegree.ogcwebservices.wfs.capabilities.WFSCapabilities;
 import org.deegree.ogcwebservices.wfs.capabilities.WFSCapabilitiesDocument;
 import org.deegree.ogcwebservices.wfs.operation.GetFeature;
-import org.xml.sax.SAXException;
 
 /**
  * TODO add class documentation here
@@ -94,13 +90,6 @@ abstract class AbstractGazetteerCommand {
         }
     }
 
-    /**
-     * @throws IOException
-     * @throws HttpException
-     * @throws SAXException
-     * @throws XMLException
-     * 
-     */
     protected void loadCapabilities()
                             throws Exception {
         InputStream is = HttpUtils.performHttpGet( gazetteerAddress, "request=GetCapabilities&service=WFS", 60000,
@@ -147,10 +136,8 @@ abstract class AbstractGazetteerCommand {
         items = new ArrayList<GazetteerItem>( fc.size() );
         Iterator<Feature> iterator = fc.iterator();
         PropertyPath gi = createPropertyPath( properties.get( "GeographicIdentifier" ) );
-        PropertyPath gai = null;
-        if ( properties.get( "AlternativeGeographicIdentifier" ) != null ) {
-            gai = createPropertyPath( properties.get( "AlternativeGeographicIdentifier" ) );
-        }
+        PropertyPath gai = parseAsPropertyPath( properties.get( "AlternativeGeographicIdentifier" ) );
+        PropertyPath tooltip = parseAsPropertyPath( properties.get( "TooltipName" ) );
         PropertyPath disp = createPropertyPath( properties.get( "DisplayName" ) );
 
         while ( iterator.hasNext() ) {
@@ -158,21 +145,11 @@ abstract class AbstractGazetteerCommand {
             String gmlID = feature.getId();
             String geoId = feature.getDefaultProperty( gi ).getValue().toString();
             String displayName = (String) feature.getDefaultProperty( disp ).getValue();
-            String altGeoId = null;
-            if ( gai != null ) {
-                FeatureProperty fp = feature.getDefaultProperty( gai );
-                if ( fp != null ) {
-                    altGeoId = (String) fp.getValue();
-                }
-            }
+            String altGeoId = parseAlternativeGeographicIdentifiers( feature, gai, tooltip );
             items.add( new GazetteerItem( gmlID, geoId, altGeoId, displayName ) );
         }
     }
 
-    /**
-     * @param properties
-     * @return
-     */
     protected PropertyPath[] getResultProperties( Map<String, String> properties ) {
         List<PropertyPath> pathes = new ArrayList<PropertyPath>();
 
@@ -188,6 +165,12 @@ abstract class AbstractGazetteerCommand {
             pathes.add( createPropertyPath( tmp ) );
         }
 
+        tmp = properties.get( "TooltipName" );
+        if ( tmp != null && !tmp.equals( properties.get( "GeographicIdentifier" ) )
+             && !tmp.equals( properties.get( "AlternativeGeographicIdentifier" ) ) ) {
+            pathes.add( createPropertyPath( tmp ) );
+        }
+        
         return pathes.toArray( new PropertyPath[pathes.size()] );
     }
 
@@ -225,6 +208,91 @@ abstract class AbstractGazetteerCommand {
         }
 
         return new PropertyPath( steps );
+    }
+
+    private String parseAlternativeGeographicIdentifiers( Feature feature, PropertyPath alternativeIdentifier,
+                                                          PropertyPath tooltip )
+                            throws PropertyPathResolvingException {
+        if ( tooltip != null ) {
+            LOG.logDebug( "Parse alternative identifier from property TooltipName." );
+            return parseAlternativeIdentifiers( feature, tooltip );
+        } else if ( alternativeIdentifier != null ) {
+            LOG.logDebug( "Parse alternative identifier from property AlternativeGeographicIdentifier." );
+            return parseSingleAlternativeIdentifierFromPath( feature, alternativeIdentifier );
+        }
+        return null;
+    }
+
+    private String parseAlternativeIdentifiers( Feature feature, PropertyPath pathToParse )
+                            throws PropertyPathResolvingException {
+        LOG.logDebug( "Number of steps in the PropertyPath: " + pathToParse.getSteps() );
+        if ( pathToParse.getSteps() == 1 ) {
+            LOG.logDebug( "Parse multiple alternative identifiers." );
+            return parseMultipleAlternativeIdentifierFromQualifiedName( feature, pathToParse );
+        } else {
+            LOG.logDebug( "Parse single alternative identifier." );
+            return parseSingleAlternativeIdentifierFromPath( feature, pathToParse );
+        }
+    }
+
+    private String parseSingleAlternativeIdentifierFromPath( Feature feature, PropertyPath pathToParse )
+                            throws PropertyPathResolvingException {
+        FeatureProperty fp = feature.getDefaultProperty( pathToParse );
+        if ( fp != null ) {
+            return (String) fp.getValue();
+        }
+        return null;
+    }
+
+    private String parseMultipleAlternativeIdentifierFromQualifiedName( Feature feature, PropertyPath pathToParse ) {
+        QualifiedName qualifiedName = pathToParse.getStep( 0 ).getPropertyName();
+        FeatureProperty[] altProps = feature.getProperties( qualifiedName );
+        if ( altProps != null ) {
+            StringBuilder alternativeIdentifier = new StringBuilder();
+            for ( FeatureProperty featureProperty : altProps ) {
+                String propValue = extractPropertyValue( featureProperty.getValue() );
+                appendPropertyValue( alternativeIdentifier, propValue );
+            }
+            return alternativeIdentifier.toString();
+        }
+        return null;
+    }
+
+    private void appendPropertyValue( StringBuilder alternativeIdentifier, String propValue ) {
+        if ( propValue != null ) {
+            if ( !"".equals( alternativeIdentifier.toString() ) )
+                alternativeIdentifier.append( ", " );
+            alternativeIdentifier.append( propValue );
+        }
+    }
+
+    private PropertyPath parseAsPropertyPath( String path ) {
+        if ( path != null ) {
+            return createPropertyPath( path );
+        }
+        return null;
+    }
+
+    private String extractPropertyValue( Object value ) {
+        if ( value instanceof Feature ) {
+            return extractPropertyValue( (Feature) value );
+        } else if ( value instanceof FeatureProperty ) {
+            return extractPropertyValue( (FeatureProperty) value );
+        }
+        return null;
+    }
+
+    private String extractPropertyValue( Feature feature ) {
+        FeatureProperty[] properties = feature.getProperties();
+        if ( properties != null && properties.length == 1 )
+            return extractPropertyValue( properties[0] );
+        return null;
+    }
+
+    private String extractPropertyValue( FeatureProperty featureProperty ) {
+        if ( featureProperty instanceof FeatureProperty )
+            return featureProperty.getValue().toString();
+        return null;
     }
 
 }
