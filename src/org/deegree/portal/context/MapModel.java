@@ -226,9 +226,10 @@ public class MapModel {
             if ( parent != null && parent.equals( layerGroup ) ) {
                 layerGroup.insert( lg, antecessor, first );
                 break;
-            } else {
-                insertLayerGroup( lg, parent, antecessor, layerGroup.getLayerGroups(), first );
             }
+            //else {
+            //    insertLayerGroup( lg, parent, antecessor, layerGroup.getLayerGroups(), first );
+            //}
         }
     }
 
