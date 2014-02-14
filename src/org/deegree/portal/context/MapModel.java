@@ -285,11 +285,11 @@ public class MapModel {
         if ( !layerGroup.equals( antecessor ) ) {
             if (layerGroup.getParent() != null) {
                 layerGroup.getParent().removeLayerGroup( layerGroup );
-                if (parent == null)
+                if (parent == null) {
                     insertLayerGroup( layerGroup, parent, antecessor, first );
-                else
+                } else {
                     insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );
-                //insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );
+                }
             }
             else {
                 layerGroups.remove(layerGroup);
