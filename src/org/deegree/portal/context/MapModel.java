@@ -105,7 +105,6 @@ public class MapModel {
      */
     public void insert( final MapModelEntry mapModelEntry, LayerGroup parent, MapModelEntry antecessor, boolean first )
                             throws Exception {
-
         // check if layer already exists in map model
         walkLayerTree( new MapModelVisitor() {
 
@@ -221,7 +220,6 @@ public class MapModel {
 
     private void insertLayerGroup( LayerGroup lg, LayerGroup parent, MapModelEntry antecessor, List<LayerGroup> lgs,
                                    boolean first ) {
-
         for ( LayerGroup layerGroup : lgs ) {
             if ( parent != null && parent.equals( layerGroup ) ) {
                 layerGroup.insert( lg, antecessor, first );
@@ -287,7 +285,11 @@ public class MapModel {
         if ( !layerGroup.equals( antecessor ) ) {
             if (layerGroup.getParent() != null) {
                 layerGroup.getParent().removeLayerGroup( layerGroup );
-                insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );
+                if (parent == null)
+                    insertLayerGroup( layerGroup, parent, antecessor, first );
+                else
+                    insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );
+                //insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );
             }
             else {
                 layerGroups.remove(layerGroup);
