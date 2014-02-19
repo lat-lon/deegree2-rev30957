@@ -51,21 +51,21 @@ import org.deegree.portal.PortalException;
  */
 public class MapModel {
 
-    private List<LayerGroup> layerGroups;
+    private List<MapModelEntry> mapModelEntries;
 
     /**
      * 
      * @param layerGroups
      */
-    public void setLayerGroups( List<LayerGroup> layerGroups ) {
-        this.layerGroups = layerGroups;
+    public void setMapModelEntries( List<MapModelEntry> layerGroups ) {
+        this.mapModelEntries = layerGroups;
     }
 
     /**
      * @return the layerGroups
      */
-    public List<LayerGroup> getLayerGroups() {
-        return layerGroups;
+    public List<MapModelEntry> getMapModelEntries() {
+        return mapModelEntries;
     }
 
     /**
@@ -75,19 +75,26 @@ public class MapModel {
      */
     public List<MMLayer> getLayersSelectedForAction( String action ) {
         List<MMLayer> tmp = new ArrayList<MMLayer>();
-        getLayersForAction( layerGroups, action, tmp );
+        getLayersForAction( mapModelEntries, action, tmp );
         return Collections.unmodifiableList( tmp );
     }
 
-    private void getLayersForAction( List<LayerGroup> lgs, String action, List<MMLayer> collector ) {
-        for ( LayerGroup layerGroup : lgs ) {
-            List<MMLayer> mapModelEntries = layerGroup.getLayers();
-            for ( MMLayer mapModelEntrry : mapModelEntries ) {
-                if ( mapModelEntrry.getSelectedFor().contains( action ) ) {
-                    collector.add( mapModelEntrry );
+    private void getLayersForAction( List<MapModelEntry> lgs, String action, List<MMLayer> collector ) {
+        for ( MapModelEntry mapModelEntry : lgs ) {
+            if ( mapModelEntry instanceof LayerGroup ) {
+                LayerGroup layerGroup = (LayerGroup) mapModelEntry;
+                List<MMLayer> mapModelEntries = layerGroup.getLayers();
+                for ( MMLayer mapModelEntrry : mapModelEntries ) {
+                    if ( mapModelEntrry.getSelectedFor().contains( action ) ) {
+                        collector.add( mapModelEntrry );
+                    }
+                    getLayersForAction( layerGroup.getMapModelEntries(), action, collector );
+                }
+            } else if ( mapModelEntry instanceof MMLayer ) {
+                if ( mapModelEntry.getSelectedFor().contains( action ) ) {
+                    collector.add( (MMLayer) mapModelEntry );
                 }
             }
-            getLayersForAction( layerGroup.getLayerGroups(), action, collector );
         }
     }
 
@@ -142,43 +149,39 @@ public class MapModel {
      *            if true layer will be inserted as first layer of a group if antecessor == null
      */
     private void insertLayer( MMLayer layer, LayerGroup parent, MapModelEntry antecessor, boolean first ) {
-        /*if ( parent == null ) {
-            int i = 0;
-            
-            if ( layerGroups.size() > 0 ) {
-                while ( i < layerGroups.size() && !layerGroups.get( i ).equals( antecessor ) ) {
-                    i++;
-                }
-            }
-            if ( i >= layerGroups.size() - 1 ) {
-                if ( first && antecessor == null ) {
-                    layerGroups.add( 0, layer );
-                } else {
-                    layerGroups.add( layer );
-                }
-            } else {
-                if ( first && antecessor == null ) {
-                    layerGroups.add( 0, layer );
-                } else {
-                    layerGroups.add( i + 1, layer );
-                }
-            }
+        /*
+         * if ( parent == null ) { int i = 0;
+         * 
+         * if ( layerGroups.size() > 0 ) { while ( i < layerGroups.size() && !layerGroups.get( i ).equals( antecessor )
+         * ) { i++; } } if ( i >= layerGroups.size() - 1 ) { if ( first && antecessor == null ) { layerGroups.add( 0,
+         * layer ); } else { layerGroups.add( layer ); } } else { if ( first && antecessor == null ) { layerGroups.add(
+         * 0, layer ); } else { layerGroups.add( i + 1, layer ); } } } else {
+         */
+        boolean insertedAsChildLayer = insertLayerInChildLayer( layer, parent, antecessor, mapModelEntries, first );
+        if ( !insertedAsChildLayer ) {
+            int index = mapModelEntries.indexOf( antecessor ) + 1;
+            mapModelEntries.add( index, layer );
         }
-        else {*/
-            insertLayer( layer, parent, antecessor, layerGroups, first );
-        //}
+        // }
     }
 
-    private void insertLayer( MMLayer layer, LayerGroup parent, MapModelEntry antecessor, List<LayerGroup> lgs,
-                              boolean first ) {
-        for ( LayerGroup layerGroup : lgs ) {
-            if ( parent != null && parent.equals( layerGroup ) ) {
-                layerGroup.insert( layer, antecessor, first );
-                break;
-            } else {
-                insertLayer( layer, parent, antecessor, layerGroup.getLayerGroups(), first );
+    private boolean insertLayerInChildLayer( MMLayer layer, LayerGroup parent, MapModelEntry antecessor,
+                                             List<MapModelEntry> lgs, boolean first ) {
+        for ( MapModelEntry mapModelEntry : lgs ) {
+            if ( mapModelEntry instanceof LayerGroup ) {
+                LayerGroup layerGroup = (LayerGroup) mapModelEntry;
+                if ( parent != null && parent.equals( mapModelEntry ) ) {
+                    layerGroup.insert( layer, antecessor, first );
+                    return true;
+                } else {
+                    boolean wasInserted = insertLayerInChildLayer( layer, parent, antecessor,
+                                                                   layerGroup.getMapModelEntries(), first );
+                    if ( wasInserted )
+                        return true;
+                }
             }
         }
+        return false;
     }
 
     /**
@@ -194,38 +197,42 @@ public class MapModel {
     private void insertLayerGroup( LayerGroup layerGroup, LayerGroup parent, MapModelEntry antecessor, boolean first ) {
         if ( parent == null ) {
             int i = 0;
-            if ( layerGroups.size() > 0 ) {
-                while ( i < layerGroups.size() && !layerGroups.get( i ).equals( antecessor ) ) {
+            if ( mapModelEntries.size() > 0 ) {
+                while ( i < mapModelEntries.size() && !mapModelEntries.get( i ).equals( antecessor ) ) {
                     i++;
                 }
             }
-            if ( i >= layerGroups.size() - 1 ) {
+            if ( i >= mapModelEntries.size() - 1 ) {
                 if ( first && antecessor == null ) {
-                    layerGroups.add( 0, layerGroup );
+                    mapModelEntries.add( 0, layerGroup );
                 } else {
-                    layerGroups.add( layerGroup );
+                    mapModelEntries.add( layerGroup );
                 }
             } else {
                 if ( first && antecessor == null ) {
-                    layerGroups.add( 0, layerGroup );
+                    mapModelEntries.add( 0, layerGroup );
                 } else {
-                    layerGroups.add( i + 1, layerGroup );
+                    mapModelEntries.add( i + 1, layerGroup );
                 }
             }
-        }
-        else {
-            insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );      
+        } else {
+            insertLayerGroup( layerGroup, parent, antecessor, mapModelEntries, first );
         }
     }
 
-    private void insertLayerGroup( LayerGroup lg, LayerGroup parent, MapModelEntry antecessor, List<LayerGroup> lgs,
+    private void insertLayerGroup( LayerGroup lg, LayerGroup parent, MapModelEntry antecessor, List<MapModelEntry> lgs,
                                    boolean first ) {
-        for ( LayerGroup layerGroup : lgs ) {
-            if ( parent != null && parent.equals( layerGroup ) ) {
-                layerGroup.insert( lg, antecessor, first );
-                break;
-            } else {
-                insertLayerGroup( lg, parent, antecessor, layerGroup.getLayerGroups(), first );
+        for ( MapModelEntry mapModelEntry : lgs ) {
+            if ( mapModelEntry instanceof LayerGroup ) {
+                LayerGroup layerGroup = (LayerGroup) mapModelEntry;
+                if ( parent != null && parent.equals( layerGroup ) ) {
+                    layerGroup.insert( lg, antecessor, first );
+                    break;
+                } else {
+                    insertLayerGroup( lg, parent, antecessor, layerGroup.getMapModelEntries(), first );
+                }
+            } else if ( mapModelEntry instanceof MMLayer ) {
+                // TODO
             }
         }
     }
@@ -261,12 +268,11 @@ public class MapModel {
      */
     private void move( MMLayer layer, LayerGroup parent, MapModelEntry antecessor, boolean first ) {
         if ( !layer.equals( antecessor ) ) {
-            if (layer.getParent() != null) {
+            if ( layer.getParent() != null ) {
                 layer.getParent().removeLayer( layer );
-                insertLayer( layer, parent, antecessor, layerGroups, first );
-            }
-            else {
-                layerGroups.remove( layer );
+                insertLayer( layer, parent, antecessor, first );
+            } else {
+                mapModelEntries.remove( layer );
                 insertLayer( layer, parent, antecessor, first );
             }
         }
@@ -283,16 +289,15 @@ public class MapModel {
      */
     private void move( LayerGroup layerGroup, LayerGroup parent, MapModelEntry antecessor, boolean first ) {
         if ( !layerGroup.equals( antecessor ) ) {
-            if (layerGroup.getParent() != null) {
+            if ( layerGroup.getParent() != null ) {
                 layerGroup.getParent().removeLayerGroup( layerGroup );
-                if (parent == null) {
+                if ( parent == null ) {
                     insertLayerGroup( layerGroup, parent, antecessor, first );
                 } else {
-                    insertLayerGroup( layerGroup, parent, antecessor, layerGroups, first );
+                    insertLayerGroup( layerGroup, parent, antecessor, mapModelEntries, first );
                 }
-            }
-            else {
-                layerGroups.remove(layerGroup);
+            } else {
+                mapModelEntries.remove( layerGroup );
                 insertLayerGroup( layerGroup, parent, antecessor, first );
             }
         }
@@ -305,9 +310,17 @@ public class MapModel {
      */
     public void walkLayerTree( MapModelVisitor visitor )
                             throws Exception {
-        for ( LayerGroup layerGroup : layerGroups ) {
+        for ( MapModelEntry layerGroup : mapModelEntries ) {
             applyVisitor( layerGroup, visitor );
         }
+    }
+
+    private void applyVisitor( MapModelEntry mapModelEntry, MapModelVisitor visitor )
+                            throws Exception {
+        if ( mapModelEntry instanceof LayerGroup )
+            applyVisitor( (LayerGroup) mapModelEntry, visitor );
+        if ( mapModelEntry instanceof MMLayer )
+            visitor.visit( (MMLayer) mapModelEntry );
     }
 
     private void applyVisitor( LayerGroup layerGroup, MapModelVisitor visitor )
@@ -366,14 +379,17 @@ public class MapModel {
      */
     public void remove( MapModelEntry mapModelEntry ) {
         if ( mapModelEntry instanceof MMLayer ) {
-            ( (MMLayer) mapModelEntry ).getParent().removeLayer( (MMLayer) mapModelEntry );
+            LayerGroup parent = ( (MMLayer) mapModelEntry ).getParent();
+            if ( parent != null )
+                parent.removeLayer( (MMLayer) mapModelEntry );
+            else
+                mapModelEntries.remove( mapModelEntry );
         } else if ( mapModelEntry instanceof LayerGroup ) {
             LayerGroup layerGroup = (LayerGroup) mapModelEntry;
             if ( layerGroup.getParent() != null ) {
                 layerGroup.getParent().removeLayerGroup( layerGroup );
-            }
-            else {
-                layerGroups.remove(layerGroup);
+            } else {
+                mapModelEntries.remove( layerGroup );
             }
         }
     }

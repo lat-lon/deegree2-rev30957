@@ -79,22 +79,26 @@ public class LayerTreeListener extends AbstractListener {
         sb.append( '[' );
         // return all nodes for root
         MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
-        List<LayerGroup> layerGroups = mapModel.getLayerGroups();
+        List<MapModelEntry> layerGroups = mapModel.getMapModelEntries();
         for ( int i = 0; i < layerGroups.size(); i++ ) {
-            LayerGroup lg = layerGroups.get( i );
-            List<MapModelEntry> mme = lg.getMapModelEntries();
+            if ( layerGroups.get( i ) instanceof LayerGroup ) {
+                LayerGroup lg = (LayerGroup) layerGroups.get( i );
+                List<MapModelEntry> mme = lg.getMapModelEntries();
 
-            sb.append( "{'text' : " );
-            sb.append( "'" ).append( lg.getTitle() ).append( "'," );
-            sb.append( "'id' : '" ).append( lg.getIdentifier() ).append( "'," );
-            sb.append( "'checked': true," );
-            sb.append( "'expanded': " ).append( lg.isExpanded() ).append( "," );
-            sb.append( "'leaf' : false, 'cls' : 'folder' " );
-            if ( mme.size() == 0 ) {
-                sb.append( ", 'children': [] " );
+                sb.append( "{'text' : " );
+                sb.append( "'" ).append( lg.getTitle() ).append( "'," );
+                sb.append( "'id' : '" ).append( lg.getIdentifier() ).append( "'," );
+                sb.append( "'checked': true," );
+                sb.append( "'expanded': " ).append( lg.isExpanded() ).append( "," );
+                sb.append( "'leaf' : false, 'cls' : 'folder' " );
+                if ( mme.size() == 0 ) {
+                    sb.append( ", 'children': [] " );
+                }
+                appendChildren( sb, lg );
+                sb.append( "}" );
+            } else if ( layerGroups.get( i ) instanceof MMLayer ) {
+                appendLayer( sb, (MMLayer) layerGroups.get( i ) );
             }
-            appendChildren( sb, lg );
-            sb.append( "}" );
             if ( i < layerGroups.size() - 1 ) {
                 sb.append( ',' );
             }
@@ -120,55 +124,60 @@ public class LayerTreeListener extends AbstractListener {
             for ( int i = 0; i < mme.size(); i++ ) {
                 if ( mme.get( i ) instanceof MMLayer ) {
                     MMLayer layer = (MMLayer) mme.get( i );
-                    if ( layer.getLayer().getExtension().isValid() ) {
-                        URL s = null;
-                        if ( layer.getLayer().getStyleList().getCurrentStyle().getLegendURL() != null ) {
-                            s = layer.getLayer().getStyleList().getCurrentStyle().getLegendURL().getOnlineResource();
-                        }
-                        sb.append( "{'text' : " );
-                        sb.append( "'" ).append( layer.getTitle() ).append( "'," );
-                        sb.append( "'id' : '" ).append( layer.getLayer().getExtension().getIdentifier() ).append( "'," );
-                        if ( s != null ) {
-                            sb.append( "'img' : '" ).append( s.toExternalForm() ).append( "'," );
-                        }
-                        if ( layer.getLayer().getAbstract() != null ) {
-                            sb.append( "'qtip': '" ).append( layer.getLayer().getAbstract() ).append( "'," );
-                        } else {
-                            sb.append( "'qtip': '" ).append( layer.getTitle() ).append( "'," );
-                        }
-                        if ( scale < layer.getLayer().getExtension().getMinScaleHint()
-                             || scale > layer.getLayer().getExtension().getMaxScaleHint() ) {
-                            sb.append( "'disabled': true," );
-                        }
-                        sb.append( "'checked': " ).append( layer.isHidden() ? "false," : "true," );
-                        sb.append( "'leaf' : true, 'cls' : 'file'}" );
-                        if ( i < mme.size() - 1 ) {
-                            sb.append( ',' );
-                        }
-                    }
+                    appendLayer( sb, layer );
                 } else {
                     LayerGroup lg = (LayerGroup) mme.get( i );
-                    List<MapModelEntry> children = lg.getMapModelEntries();
-
-                    sb.append( "{'text' : " );
-                    sb.append( "'" ).append( lg.getTitle() ).append( "'," );
-                    sb.append( "'id' : '" ).append( lg.getIdentifier() ).append( "'," );
-                    sb.append( "'checked': " ).append( !lg.isHidden() ).append( "," );
-                    sb.append( "'expanded': " ).append( lg.isExpanded() ).append( "," );
-                    sb.append( "'leaf' : false, 'cls' : 'folder' " );
-                    if ( children.size() == 0 ) {
-                        sb.append( ", 'children': [] " );
-                    }
-                    appendChildren( sb, lg );
-                    sb.append( "}" );
-                    if ( i < mme.size() - 1 ) {
-                        sb.append( ',' );
-                    }
+                    appendLayerGroup( sb, lg );
+                }
+                if ( i < mme.size() - 1 ) {
+                    sb.append( ',' );
                 }
             }
             sb.append( "]" );
         }
 
+    }
+
+    private void appendLayer( StringBuilder sb, MMLayer layer ) {
+        if ( layer.getLayer().getExtension().isValid() ) {
+            URL s = null;
+            if ( layer.getLayer().getStyleList().getCurrentStyle().getLegendURL() != null ) {
+                s = layer.getLayer().getStyleList().getCurrentStyle().getLegendURL().getOnlineResource();
+            }
+            sb.append( "{'text' : " );
+            sb.append( "'" ).append( layer.getTitle() ).append( "'," );
+            sb.append( "'id' : '" ).append( layer.getLayer().getExtension().getIdentifier() ).append( "'," );
+            if ( s != null ) {
+                sb.append( "'img' : '" ).append( s.toExternalForm() ).append( "'," );
+            }
+            if ( layer.getLayer().getAbstract() != null ) {
+                sb.append( "'qtip': '" ).append( layer.getLayer().getAbstract() ).append( "'," );
+            } else {
+                sb.append( "'qtip': '" ).append( layer.getTitle() ).append( "'," );
+            }
+            if ( scale < layer.getLayer().getExtension().getMinScaleHint()
+                 || scale > layer.getLayer().getExtension().getMaxScaleHint() ) {
+                sb.append( "'disabled': true," );
+            }
+            sb.append( "'checked': " ).append( layer.isHidden() ? "false," : "true," );
+            sb.append( "'leaf' : true, 'cls' : 'file'}" );
+        }
+    }
+
+    private void appendLayerGroup( StringBuilder sb, LayerGroup lg ) {
+        List<MapModelEntry> children = lg.getMapModelEntries();
+
+        sb.append( "{'text' : " );
+        sb.append( "'" ).append( lg.getTitle() ).append( "'," );
+        sb.append( "'id' : '" ).append( lg.getIdentifier() ).append( "'," );
+        sb.append( "'checked': " ).append( !lg.isHidden() ).append( "," );
+        sb.append( "'expanded': " ).append( lg.isExpanded() ).append( "," );
+        sb.append( "'leaf' : false, 'cls' : 'folder' " );
+        if ( children.size() == 0 ) {
+            sb.append( ", 'children': [] " );
+        }
+        appendChildren( sb, lg );
+        sb.append( "}" );
     }
 
 }

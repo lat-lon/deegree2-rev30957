@@ -68,6 +68,7 @@ import org.deegree.portal.context.LayerGroup;
 import org.deegree.portal.context.LayerList;
 import org.deegree.portal.context.MMLayer;
 import org.deegree.portal.context.MapModel;
+import org.deegree.portal.context.MapModelEntry;
 import org.deegree.portal.context.Server;
 import org.deegree.portal.context.Style;
 import org.deegree.portal.context.StyleList;
@@ -128,7 +129,11 @@ public class AddLayerListener extends AbstractListener {
                 // add a new group for added layers
                 lg = addLayerGroup( mapModel, wmsName );
             } else {
-                lg = mapModel.getLayerGroups().get( 0 );
+                List<MapModelEntry> mapModelEntries = mapModel.getMapModelEntries();
+                for ( MapModelEntry mapModelEntry : mapModelEntries ) {
+                    if ( mapModelEntry instanceof LayerGroup )
+                        lg = (LayerGroup) mapModelEntry;
+                }
             }
             for ( Object object : layers ) {
                 Map<String, Object> layer = (Map<String, Object>) object;
