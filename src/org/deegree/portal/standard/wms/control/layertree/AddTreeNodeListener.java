@@ -80,7 +80,7 @@ public class AddTreeNodeListener extends AbstractListener {
         MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
         LayerGroup parent = (LayerGroup) mapModel.getMapModelEntryByIdentifier( parentNode );
 
-        LayerGroup newLayerGroup = new LayerGroup( node, nodeTitle, false, false, parent, mapModel );
+        LayerGroup newLayerGroup = new LayerGroup( node, nodeTitle, false, true, parent, mapModel );
 
         try {
             mapModel.insert( newLayerGroup, parent, null, true );

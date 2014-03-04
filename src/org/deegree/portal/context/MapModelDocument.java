@@ -75,20 +75,26 @@ class MapModelDocument extends XMLFragment {
     MapModel parseMapModel()
                             throws XMLParsingException {
         MapModel mapModel = new MapModel();
-        List<LayerGroup> layerGroups = new ArrayList<LayerGroup>();
-        List<Element> elements = XMLTools.getElements( getRootElement(), "./dgcntxt:LayerGroup", nsContext );
+        List<MapModelEntry> layerGroups = new ArrayList<MapModelEntry>();
+        List<Element> elements = XMLTools.getElements( getRootElement(), "./dgcntxt:LayerGroup | ./dgcntxt:Layer",
+                                                       nsContext );
         for ( Element element : elements ) {
-            String identifier = XMLTools.getRequiredNodeAsString( element, "./@identifier", nsContext );
-            String title = XMLTools.getRequiredNodeAsString( element, "./@title", nsContext );
-            String tmp = XMLTools.getNodeAsString( element, "./@hidden", nsContext, "false" );
-            boolean hidden = "true".equals( tmp ) || "1".equals( tmp );
-            tmp = XMLTools.getNodeAsString( element, "./@expanded", nsContext, "false" );
-            boolean expanded = "true".equals( tmp ) || "1".equals( tmp );
-            LayerGroup layerGroup = new LayerGroup( identifier, title, hidden, expanded, null, mapModel );
-            layerGroups.add( layerGroup );
-            appendMapModelEntries( element, layerGroup, mapModel );
+            if ( element.getLocalName().equals( "Layer" ) ) {
+                String layerId = XMLTools.getRequiredNodeAsString( element, "./@layerId", nsContext );
+                layerGroups.add( new MMLayer( layerId, null, mapModel, null ) );
+            } else {
+                String identifier = XMLTools.getRequiredNodeAsString( element, "./@identifier", nsContext );
+                String title = XMLTools.getRequiredNodeAsString( element, "./@title", nsContext );
+                String tmp = XMLTools.getNodeAsString( element, "./@hidden", nsContext, "false" );
+                boolean hidden = "true".equals( tmp ) || "1".equals( tmp );
+                tmp = XMLTools.getNodeAsString( element, "./@expanded", nsContext, "false" );
+                boolean expanded = "true".equals( tmp ) || "1".equals( tmp );
+                LayerGroup layerGroup = new LayerGroup( identifier, title, hidden, expanded, null, mapModel );
+                layerGroups.add( layerGroup );
+                appendMapModelEntries( element, layerGroup, mapModel );
+            }
         }
-        mapModel.setLayerGroups( layerGroups );
+        mapModel.setMapModelEntries( layerGroups );
 
         return mapModel;
     }
@@ -105,9 +111,9 @@ class MapModelDocument extends XMLFragment {
         for ( Element element : elements ) {
             if ( element.getLocalName().equals( "Layer" ) ) {
                 String layerId = XMLTools.getRequiredNodeAsString( element, "./@layerId", nsContext );
-                layerGroup.addLayer(  new MMLayer( layerId, layerGroup, mapModel, null ) );
+                layerGroup.addLayer( new MMLayer( layerId, layerGroup, mapModel, null ) );
             } else {
-                String tmp = XMLTools.getNodeAsString( element, "./@hidden", nsContext, "false" );                
+                String tmp = XMLTools.getNodeAsString( element, "./@hidden", nsContext, "false" );
                 boolean hidden = "true".equals( tmp ) || "1".equals( tmp );
                 tmp = XMLTools.getNodeAsString( element, "./@expanded", nsContext, "false" );
                 boolean expanded = "true".equals( tmp ) || "1".equals( tmp );
@@ -118,6 +124,6 @@ class MapModelDocument extends XMLFragment {
                 appendMapModelEntries( element, lg, mapModel );
             }
         }
-        
+
     }
 }

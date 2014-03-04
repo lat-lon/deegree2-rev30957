@@ -987,9 +987,12 @@ public class XMLFactory {
         if ( mapModel != null ) {
             Element mm = createElement( D_CONTEXT_NS, "deegree:MapModel" );
             e.appendChild( mm );
-            List<LayerGroup> layerGroups = mapModel.getLayerGroups();
-            for ( LayerGroup layerGroup : layerGroups ) {
-                appendLayerGroup( mm, layerGroup );
+            List<MapModelEntry> mapModelEntries = mapModel.getMapModelEntries();
+            for ( MapModelEntry mapModelEntry : mapModelEntries ) {
+                if ( mapModelEntry instanceof LayerGroup )
+                    appendLayerGroup( mm, (LayerGroup) mapModelEntry );
+                else if ( mapModelEntry instanceof MMLayer )
+                    appendLayer( mm, (MMLayer) mapModelEntry );
             }
         }
     }
