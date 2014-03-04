@@ -731,11 +731,20 @@ public class XMLFragment implements Serializable {
      * @return the string
      */
     public String getAsString() {
+        return getAsString( CharsetUtils.getSystemCharset()  );
+    }
+
+    /**
+     * Returns a string representation of the XML Document
+     * 
+     * @return the string
+     */
+    public String getAsString(String encoding) {
         StringWriter writer = new StringWriter( 50000 );
         Source source = new DOMSource( rootElement );
         try {
             Transformer transformer = TransformerFactory.newInstance().newTransformer();
-            transformer.setOutputProperty( "encoding", CharsetUtils.getSystemCharset() );
+            transformer.setOutputProperty( "encoding", encoding );
             transformer.transform( source, new StreamResult( writer ) );
         } catch ( Exception e ) {
             LOG.logError( "Error serializing XMLFragment!", e );
