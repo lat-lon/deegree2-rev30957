@@ -219,8 +219,8 @@ public class SessionWMS extends HttpServlet {
         if ( geometry instanceof Point ) {
             int x = (int) Math.round( gt.getDestX( ( (Point) geometry ).getX() ) );
             int y = (int) Math.round( gt.getDestY( ( (Point) geometry ).getY() ) );
-            x += symbol.getWidth() / 2 + 1;
-            y += symbol.getHeight() / 2 + 1;
+            x -= symbol.getWidth() / 2 + 1;
+            y -= symbol.getHeight() / 2 + 1;
             g.drawImage( symbol, x, y, null );
         } else if ( geometry instanceof Curve ) {
             GeneralPath path = createPath( (Curve) geometry, gt );
