@@ -370,7 +370,7 @@ public class DynLegendListener extends AbstractMapListener {
                 try {
                     map.put( "ID", UUID.randomUUID().toString() );
                     gm = GetMap.create( map );
-                    // must be recreated because GetMap.create( map ) removes all parameters from 
+                    // must be recreated because GetMap.create( map ) removes all parameters from
                     // passed map
                     map = toMap( request );
                 } catch ( Exception e ) {
@@ -678,7 +678,10 @@ public class DynLegendListener extends AbstractMapListener {
         }
 
         if ( url == null ) {
-            return createMissingLegend( ogcLayer.getTitle() );
+            if ( ogcLayer != null )
+                return createMissingLegend( ogcLayer.getTitle() );
+            else
+                return createMissingLegend( layer );
         } else {
             try {
                 return ImageUtils.loadImage( url );
@@ -741,7 +744,7 @@ public class DynLegendListener extends AbstractMapListener {
             sb.append( "&" );
         }
         if ( url.toUpperCase().indexOf( "SERVICE=WMS" ) > -1 ) {
-            // this is extremely stupid but 
+            // this is extremely stupid but
             // a) there are some WMS that use SERVICE=WMS as a vendor specific parameter
             // b) other WMS (ArcGIS) does not accept the same parameter twice in a GetCapabilties request
             sb.append( "request=GetCapabilities&version=" );
@@ -749,7 +752,6 @@ public class DynLegendListener extends AbstractMapListener {
             sb.append( "request=GetCapabilities&service=WMS&version=" );
         }
         sb.append( version );
-System.out.println(sb);
         if ( userNames.get( url ) != null ) {
             sb.append( "&USER=" ).append( userNames.get( url ) );
             sb.append( "&PASSWORD=" );
