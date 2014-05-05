@@ -37,6 +37,7 @@ package org.deegree.portal.standard.gazetteer;
 
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -117,12 +118,15 @@ abstract class AbstractGazetteerCommand {
             }
         }
 
-        String gf = XMLFactory.export( getFeature ).getAsString();
+        String encoding = Charset.defaultCharset().displayName();
+        String gf = XMLFactory.export( getFeature ).getAsString( encoding );
 
         LOG.logDebug( "GetFeature request: ", gf );
         LOG.logDebug( "Sending against: ", wfs );
+        Map<String, String> header = new HashMap<String, String>();
+        header.put( "Content-Type", "text/xml; charset=" + encoding );
         InputStream is = HttpUtils.performHttpPost( wfs.toURI().toASCIIString(), gf, 60000, null, null, "text/xml",
-                                                    null, null ).getResponseBodyAsStream();
+                                                    encoding, header ).getResponseBodyAsStream();
 
         GMLFeatureCollectionDocument gml = new GMLFeatureCollectionDocument();
         gml.load( is, wfs.toURI().toASCIIString() );

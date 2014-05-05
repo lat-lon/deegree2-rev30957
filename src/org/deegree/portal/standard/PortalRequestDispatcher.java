@@ -40,6 +40,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.Charset;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -52,6 +54,7 @@ import javax.servlet.http.HttpSession;
 import org.deegree.enterprise.control.RequestDispatcher;
 import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
+import org.deegree.framework.util.CharsetUtils;
 import org.deegree.framework.version.Version;
 import org.deegree.portal.Constants;
 import org.deegree.portal.context.ViewContext;
@@ -122,7 +125,10 @@ public class PortalRequestDispatcher extends RequestDispatcher {
         LOG.logInfo( "Starting deegree version " + Version.getVersion() + " on server: "
                      + this.getServletContext().getServerInfo() + " / Java version: "
                      + System.getProperty( "java.version" ) );
-        
+        LOG.logInfo( "Default charset: " + Charset.defaultCharset() );
+        LOG.logInfo( "File encoding: " + System.getProperty( "file.encoding" ) );
+        LOG.logInfo( "System charset: " + CharsetUtils.getSystemCharset() );
+        LOG.logInfo( "Default locale: " + Locale.getDefault() );
     }
 
     /**
