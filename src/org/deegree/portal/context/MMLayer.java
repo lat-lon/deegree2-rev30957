@@ -77,6 +77,15 @@ public class MMLayer extends MapModelEntry {
     public String getTitle() {
         return layer.getTitle();
     }
+    
+    @Override
+    public void setTitle( String title ) {
+        try {
+            layer.setTitle( title );
+        } catch ( ContextException e ) {
+            // only thrown if title is null...
+        }
+    }
 
     @Override
     public boolean isHidden() {
