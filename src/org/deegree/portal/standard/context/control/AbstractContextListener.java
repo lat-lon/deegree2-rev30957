@@ -235,8 +235,11 @@ abstract public class AbstractContextListener extends AbstractListener {
                         GetMethod meth = new GetMethod( sb.toString() );
                         client.executeMethod( meth );
                         if ( meth.getStatusCode() == 200 ) {
-                            sid = meth.getResponseBodyAsString();
-                            session.setAttribute( "SESSIONID", sid );
+                            String respString = meth.getResponseBodyAsString();
+                            if ( !respString.contains( "ServiceExceptionReport" ) ) {
+                                sid = respString;
+                                session.setAttribute( "SESSIONID", sid );
+                            }
                         } else {
                             LOG.logWarning( "Web application at " + addr + " does not exist." );
                         }
