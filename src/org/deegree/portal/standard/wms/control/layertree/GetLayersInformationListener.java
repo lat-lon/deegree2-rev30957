@@ -80,7 +80,7 @@ public class GetLayersInformationListener extends AbstractListener {
                 layerBeans[i++] = new LayerBean( layer.getServer().getTitle(), layer.getName(),
                                                  layer.getServer().getService() + " " + layer.getServer().getVersion(),
                                                  layer.getServer().getOnlineResource().toURI().toASCIIString(),
-                                                 layer.getFormatList().getCurrentFormat().getName() );
+                                                 layer.getFormatList().getCurrentFormat().getName(), id );
 
             }
         } catch ( Exception e ) {
