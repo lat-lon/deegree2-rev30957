@@ -91,7 +91,7 @@ public class RemoveTreeNodeListener extends AbstractListener {
                                                layer.getServer().getOnlineResource().toURI().toASCIIString() );
 
                 
-                responseHandler.writeAndClose( false, new String[] {( (MMLayer) mme ).getLayer().getName()} );
+                responseHandler.writeAndClose( false, new String[] {( (MMLayer) mme ).getIdentifier()} );
             } else {
                 LayerGroup layerGroup = (LayerGroup) mme;
                 Map<String, Layer> id2layers = new HashMap<String, Layer>();
