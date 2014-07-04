@@ -54,6 +54,8 @@ public class LayerBean {
     private String serviceURL;
 
     private String format;
+    
+    private String identifier;
 
     /**
      * 
@@ -63,13 +65,14 @@ public class LayerBean {
      * @param serviceURL
      * @param format
      */
-    public LayerBean( String wmsName, String name, String serviceType, String serviceURL, String format ) {
+    public LayerBean( String wmsName, String name, String serviceType, String serviceURL, String format, String identifier ) {
         super();
         this.wmsName = wmsName;
         this.name = name;
         this.serviceType = serviceType;
         this.serviceURL = serviceURL;
         this.format = format;
+        this.identifier = identifier;
     }
 
     /**
@@ -145,6 +148,21 @@ public class LayerBean {
      */
     public void setName( String name ) {
         this.name = name;
+    }
+
+    /**
+     * @return the identifier
+     */
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    /**
+     * @param identifier
+     *            the identifier to set
+     */
+    public void setIdentifier( String identifier ) {
+        this.identifier = identifier;
     }
 
 }

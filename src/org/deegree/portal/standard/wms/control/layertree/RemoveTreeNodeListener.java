@@ -37,9 +37,10 @@ package org.deegree.portal.standard.wms.control.layertree;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.deegree.enterprise.control.ajax.AbstractListener;
 import org.deegree.enterprise.control.ajax.ResponseHandler;
@@ -90,15 +91,16 @@ public class RemoveTreeNodeListener extends AbstractListener {
                                                layer.getServer().getOnlineResource().toURI().toASCIIString() );
 
                 
-                responseHandler.writeAndClose( false, new String[] {( (MMLayer) mme ).getLayer().getName()} );
+                responseHandler.writeAndClose( false, new String[] {( (MMLayer) mme ).getIdentifier()} );
             } else {
                 LayerGroup layerGroup = (LayerGroup) mme;
-                List<Layer> layers = new ArrayList<Layer>();
-                collectLayers( layers, layerGroup );
-                String[] s = new String[layers.size()];
+                Map<String, Layer> id2layers = new HashMap<String, Layer>();
+                collectLayers( id2layers, layerGroup );
+                String[] s = new String[id2layers.size()];
                 int i = 0;
-                for ( Layer layer : layers ) {
-                    s[i++] = layer.getName();
+                for ( Entry<String, Layer> id2Layer : id2layers.entrySet() ) {
+                    Layer layer = id2Layer.getValue();
+                    s[i++] = id2Layer.getKey();
                     vc.getLayerList().removeLayer( layer.getName(),
                                                    layer.getServer().getOnlineResource().toURI().toASCIIString() );
                 }
@@ -112,11 +114,11 @@ public class RemoveTreeNodeListener extends AbstractListener {
 
     }
 
-    private void collectLayers( List<Layer> layers, LayerGroup layerGroup ) {
+    private void collectLayers( Map<String, Layer> layers, LayerGroup layerGroup ) {
         List<MMLayer> list;
         list = layerGroup.getLayers();
         for ( MMLayer mmLayer : list ) {
-            layers.add( mmLayer.getLayer() );
+            layers.put( mmLayer.getIdentifier(), mmLayer.getLayer() );
         }
         List<LayerGroup> lgList = layerGroup.getLayerGroups();
         for ( LayerGroup lg : lgList ) {
