@@ -36,9 +36,9 @@
 package org.deegree.portal.standard.wms.control.layertree;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.deegree.enterprise.control.ajax.AbstractListener;
 import org.deegree.enterprise.control.ajax.ResponseHandler;
@@ -85,39 +85,30 @@ public class MoveTreeNodeListener extends AbstractListener {
         ViewContext vc = (ViewContext) event.getSession().getAttribute( Constants.CURRENTMAPCONTEXT );
         MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
         MapModelEntry mme = mapModel.getMapModelEntryByIdentifier( node );
-        
+
         LayerGroup parent = null;
-        if (parentNode != "root") {
+        if ( parentNode != "root" ) {
             parent = (LayerGroup) mapModel.getMapModelEntryByIdentifier( parentNode );
         }
-        
+
         if ( mme != null ) {
             // update tree/map model
             MapModelEntry antecessor = null;
             antecessor = mapModel.getMapModelEntryByIdentifier( beforeNode );
-/*
-            if ( beforeNode != null && beforeNode.length() > 0 && parent != null) {
-                antecessor = mapModel.getMapModelEntryByIdentifier( beforeNode );
-                
-                List<MapModelEntry> list = parent.getMapModelEntries();
-
-                for ( int i = 0; i < list.size(); i++ ) {
-                    if ( list.get( i ).equals( antecessor ) ) {
-                        if ( i > 0 ) {
-                            antecessor = list.get( i - 1 );
-                        } else {
-                            antecessor = null;
-                        }
-                        break;
-                    }
-                }
-            }
-            */
+            /*
+             * if ( beforeNode != null && beforeNode.length() > 0 && parent != null) { antecessor =
+             * mapModel.getMapModelEntryByIdentifier( beforeNode );
+             * 
+             * List<MapModelEntry> list = parent.getMapModelEntries();
+             * 
+             * for ( int i = 0; i < list.size(); i++ ) { if ( list.get( i ).equals( antecessor ) ) { if ( i > 0 ) {
+             * antecessor = list.get( i - 1 ); } else { antecessor = null; } break; } } }
+             */
             mapModel.move( mme, parent, antecessor, true );
 
             // update WMC layer list
             LayerList layerList = vc.getLayerList();
-            final List<Layer> layers = new ArrayList<Layer>( layerList.getLayers().length );
+            final Map<String, Layer> id2layers = new HashMap<String, Layer>( layerList.getLayers().length );
             try {
                 mapModel.walkLayerTree( new MapModelVisitor() {
 
@@ -128,18 +119,23 @@ public class MoveTreeNodeListener extends AbstractListener {
 
                     public void visit( MMLayer layer )
                                             throws Exception {
-                        layers.add( layer.getLayer() );
+                        id2layers.put( layer.getIdentifier(), layer.getLayer() );
                     }
                 } );
-                layerList.setLayers( layers.toArray( new Layer[layers.size()] ) );
-                LayerBean[] beans = new LayerBean[layers.size()];
-                for ( int i = 0; i < beans.length; i++ ) {  
-                    beans[i] = new LayerBean( layers.get( i ).getServer().getTitle(), layers.get( i ).getName(),
-                                              layers.get( i ).getServer().getService() + " "
-                                              + layers.get( i ).getServer().getVersion(),
-                                              layers.get( i ).getServer().getOnlineResource().toURI().toASCIIString(),
-                                              layers.get( i ).getFormatList().getCurrentFormat().getName() );
+                Layer[] layers = new Layer[id2layers.size()];
+                LayerBean[] beans = new LayerBean[id2layers.size()];
+                int i = 0;
+                for ( Entry<String, Layer> id2layer : id2layers.entrySet() ) {
+                    String identifier = id2layer.getKey();
+                    Layer layer = id2layer.getValue();
+                    beans[i] = new LayerBean( layer.getServer().getTitle(), layer.getName(),
+                                              layer.getServer().getService() + " " + layer.getServer().getVersion(),
+                                              layer.getServer().getOnlineResource().toURI().toASCIIString(),
+                                              layer.getFormatList().getCurrentFormat().getName(), identifier );
+                    layers[i] = layer;
+                    i++;
                 }
+                layerList.setLayers( layers );
                 responseHandler.writeAndClose( false, beans );
             } catch ( Exception e ) {
                 LOG.logError( e );
