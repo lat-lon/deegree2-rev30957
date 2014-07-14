@@ -107,6 +107,7 @@ import org.xml.sax.SAXException;
  * 
  * @version $Revision: 30950 $, $Date: 2011-05-30 11:30:23 +0200 (Mo, 30. Mai 2011) $
  */
+@SuppressWarnings("deprecation")
 public class WebMapContextFactory {
 
     private static final ILogger LOG = LoggerFactory.getLogger( WebMapContextFactory.class );
@@ -929,11 +930,12 @@ public class WebMapContextFactory {
      */
     private static Parameter createParameter( Element element )
                             throws XMLParsingException {
-    	boolean isConstructorRelevant = parseBoolean( XMLTools.getAttrValue(element, null, "isConstructorRelevant", "true") ); 
+        boolean isConstructorRelevant = parseBoolean( XMLTools.getAttrValue( element, null, "isConstructorRelevant",
+                                                                             "true" ) );
         String name = XMLTools.getRequiredStringValue( "Name", CommonNamespaces.DGCNTXTNS, element );
         String value = XMLTools.getRequiredStringValue( "Value", CommonNamespaces.DGCNTXTNS, element );
         // Parameter param = new Parameter_Impl( name+":"+value, value );
-        Parameter param = new Parameter( name, value , isConstructorRelevant);
+        Parameter param = new Parameter( name, value, isConstructorRelevant );
 
         return param;
     }
@@ -1206,8 +1208,10 @@ public class WebMapContextFactory {
 
         // try setting metadataURl again. this time from server.
         if ( metadataURL == null ) {
-            metadataURL = createMetadataURL( name, server );
+            metadataURL = extractCapabilitiesUrl( name, server );
         }
+        if ( abstract_ == null || abstract_.trim().length() <= 0 )
+            abstract_ = retrieveAbstractFromCapabilities( name, server );
 
         // TODO must be removed, if reading capabilities from remote WMS is too slow
         setScaleHint( extElem, name, extension, server, user, sessionID, extension.getAuthentication() );
@@ -1231,37 +1235,45 @@ public class WebMapContextFactory {
         return layer;
     }
 
-    /**
-     * @param layerName
-     *            the layer name from which to take the MetadataURL information
-     * @param server
-     *            the WMS server from which to read the layer information (WMS capabilities document)
-     * @return only the first MetadataURL from the WMS capabilities for the given layer
-     * @throws XMLParsingException
-     */
-    private static BaseURL createMetadataURL( String layerName, Server server )
+    private static String retrieveAbstractFromCapabilities( String layerName, Server server )
+                            throws XMLParsingException {
+        org.deegree.ogcwebservices.wms.capabilities.Layer layer = retrieveLayerFromServer( layerName, server );
+        if ( layer != null ) {
+            String abstract_ = layer.getAbstract();
+            if ( abstract_ != null && abstract_.length() > 0 )
+                return abstract_;
+        }
+        return null;
+    }
+
+    private static BaseURL extractCapabilitiesUrl( String layerName, Server server )
+                            throws XMLParsingException {
+        org.deegree.ogcwebservices.wms.capabilities.Layer layer = retrieveLayerFromServer( layerName, server );
+        if ( layer != null ) {
+            MetadataURL[] urls = layer.getMetadataURL();
+            if ( urls != null && urls.length > 0 ) {
+                return urls[0];
+            }
+        } else {
+            if ( LOG.getLevel() == ILogger.LOG_DEBUG ) {
+                String msg = StringTools.concat( 500, "LayerName '", layerName,
+                                                 "' does not exist in the WMSCapabilities of server ",
+                                                 server.getOnlineResource() );
+                LOG.logDebug( msg );
+            }
+        }
+        return null;
+    }
+
+    private static org.deegree.ogcwebservices.wms.capabilities.Layer retrieveLayerFromServer( String layerName,
+                                                                                              Server server )
                             throws XMLParsingException {
 
         WMSCapabilities capa = (WMSCapabilities) server.getCapabilities();
-        BaseURL metaURL = null;
-
         if ( capa != null ) {
-            org.deegree.ogcwebservices.wms.capabilities.Layer layer = capa.getLayer( layerName );
-            if ( layer != null ) {
-                MetadataURL[] urls = layer.getMetadataURL();
-                if ( urls != null && urls.length > 0 ) {
-                    metaURL = urls[0];
-                }
-            } else {
-                if ( LOG.getLevel() == ILogger.LOG_DEBUG ) {
-                    String msg = StringTools.concat( 500, "LayerName '", layerName,
-                                                     "' does not exist in the WMSCapabilities of server ",
-                                                     server.getOnlineResource() );
-                    LOG.logDebug( msg );
-                }
-            }
+            return capa.getLayer( layerName );
         }
-        return metaURL;
+        return null;
     }
 
     /**
@@ -1606,7 +1618,7 @@ public class WebMapContextFactory {
                 parentNodeId = Integer.parseInt( XMLTools.getStringValue( elem ) );
             }
 
-            // 
+            //
             boolean showLegendGraphic = false;
             elem = XMLTools.getChildElement( "showLegendGraphic", CommonNamespaces.DGCNTXTNS, element );
             if ( elem != null ) {
