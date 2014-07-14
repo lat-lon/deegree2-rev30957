@@ -64,16 +64,10 @@ import org.deegree.portal.context.ViewContext;
  */
 public class LayerTreeListener extends AbstractListener {
 
-    private double scale = 0;
-
     public void actionPerformed( WebEvent event, ResponseHandler responseHandler )
                             throws IOException {
         ViewContext vc = (ViewContext) event.getSession().getAttribute( Constants.CURRENTMAPCONTEXT );
         Point[] points = vc.getGeneral().getBoundingBox();
-        Envelope bbox = GeometryFactory.createEnvelope( points[0].getPosition(), points[1].getPosition(),
-                                                        points[0].getCoordinateSystem() );
-        scale = MapUtils.calcScaleWMS111( vc.getGeneral().getWindow().width, vc.getGeneral().getWindow().height, bbox,
-                                          bbox.getCoordinateSystem() );
 
         StringBuilder sb = new StringBuilder( 10000 );
         sb.append( '[' );
@@ -155,10 +149,7 @@ public class LayerTreeListener extends AbstractListener {
             } else {
                 sb.append( "'qtip': '" ).append( layer.getTitle() ).append( "'," );
             }
-            if ( scale < layer.getLayer().getExtension().getMinScaleHint()
-                 || scale > layer.getLayer().getExtension().getMaxScaleHint() ) {
-                sb.append( "'disabled': true," );
-            }
+
             sb.append( "'checked': " ).append( layer.isHidden() ? "false," : "true," );
             sb.append( "'leaf' : true, 'cls' : 'file'}" );
         }
