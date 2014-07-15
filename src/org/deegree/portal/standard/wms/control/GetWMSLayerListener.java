@@ -136,6 +136,7 @@ public class GetWMSLayerListener extends AbstractListener {
         s = capabilities.getServiceIdentification().getTitle();
         s = s.replaceAll( "'", "" );
         getRequest().setAttribute( "WMSNAME", s );
+        getRequest().setAttribute( "ABSTRACT", capabilities.getLayer().getAbstract() );
 
         OperationsMetadata om = capabilities.getOperationMetadata();
         Operation op = om.getOperation( new QualifiedName( "GetMap" ) );
