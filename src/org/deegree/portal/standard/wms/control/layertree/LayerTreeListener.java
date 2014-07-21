@@ -43,9 +43,6 @@ import java.util.List;
 import org.deegree.enterprise.control.ajax.AbstractListener;
 import org.deegree.enterprise.control.ajax.ResponseHandler;
 import org.deegree.enterprise.control.ajax.WebEvent;
-import org.deegree.framework.util.MapUtils;
-import org.deegree.model.spatialschema.Envelope;
-import org.deegree.model.spatialschema.GeometryFactory;
 import org.deegree.model.spatialschema.Point;
 import org.deegree.portal.Constants;
 import org.deegree.portal.context.LayerGroup;
@@ -145,7 +142,8 @@ public class LayerTreeListener extends AbstractListener {
                 sb.append( "'img' : '" ).append( s.toExternalForm() ).append( "'," );
             }
             if ( layer.getLayer().getAbstract() != null ) {
-                sb.append( "'qtip': '" ).append( layer.getLayer().getAbstract() ).append( "'," );
+                String encodedAbstract = encodeWithHtmlEntity( layer.getLayer().getAbstract() );
+                sb.append( "'qtip': '" ).append( encodedAbstract ).append( "'," );
             } else {
                 sb.append( "'qtip': '" ).append( layer.getTitle() ).append( "'," );
             }
@@ -169,6 +167,19 @@ public class LayerTreeListener extends AbstractListener {
         }
         appendChildren( sb, lg );
         sb.append( "}" );
+    }
+
+    private String encodeWithHtmlEntity( String s ) {
+        StringBuffer buf = new StringBuffer();
+        for ( int i = 0; i < s.length(); i++ ) {
+            char c = s.charAt( i );
+            if ( c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' ) {
+                buf.append( c );
+            } else {
+                buf.append( "&#" + (int) c + ";" );
+            }
+        }
+        return buf.toString();
     }
 
 }

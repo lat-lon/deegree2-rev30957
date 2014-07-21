@@ -40,7 +40,7 @@ import static java.lang.Boolean.parseBoolean;
 import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -53,6 +53,7 @@ import org.deegree.datatypes.QualifiedName;
 import org.deegree.enterprise.WebUtils;
 import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
+import org.deegree.framework.util.CharsetUtils;
 import org.deegree.framework.util.Parameter;
 import org.deegree.framework.util.ParameterList;
 import org.deegree.framework.util.StringTools;
@@ -1828,7 +1829,7 @@ public class WebMapContextFactory {
         OGCCapabilities capa = null;
         try {
             URL url = null;
-            Reader reader = null;
+            InputStream stream = null;
 
             // consider that the reference to the capabilities may has been
             // made by a file URL to a local copy
@@ -1842,25 +1843,27 @@ public class WebMapContextFactory {
                 LOG.logDebug( "GetCapabilities: ", href );
 
                 httpclient.executeMethod( httpget );
-                reader = new InputStreamReader( httpget.getResponseBodyAsStream() );
+                stream = httpget.getResponseBodyAsStream();
             } else {
                 if ( href.endsWith( "?" ) ) {
                     url = new URL( href.substring( 0, href.length() - 1 ) );
                 }
-                reader = new InputStreamReader( url.openStream() );
+                stream = url.openStream();
             }
+
+            Reader capAsReader = CharsetUtils.convertToReaderWithDefaultCharset( stream );
 
             OGCCapabilitiesDocument doc = null;
             if ( "OGC:WMS".equals( service ) ) {
                 doc = new WMSCapabilitiesDocument();
-                doc.load( reader, XMLFragment.DEFAULT_URL );
+                doc.load( capAsReader, XMLFragment.DEFAULT_URL );
                 doc = WMSCapabilitiesDocumentFactory.getWMSCapabilitiesDocument( doc.getRootElement() );
             } else if ( "OGC:WFS".equals( service ) ) {
                 doc = new WFSCapabilitiesDocument();
-                doc.load( reader, XMLFragment.DEFAULT_URL );
+                doc.load( capAsReader, XMLFragment.DEFAULT_URL );
             } else if ( "OGC:WCS".equals( service ) ) {
                 doc = new WCSCapabilitiesDocument();
-                doc.load( reader, XMLFragment.DEFAULT_URL );
+                doc.load( capAsReader, XMLFragment.DEFAULT_URL );
             } else {
                 throw new XMLParsingException( "not supported service type: " + service );
             }
@@ -1868,7 +1871,7 @@ public class WebMapContextFactory {
             capa = doc.parseCapabilities();
         } catch ( Exception e ) {
             LOG.logWarning( "could not read capabilities: " + href );
-            // LOG.logError( e.getMessage(), e );
+            LOG.logError( e.getMessage(), e );
             return null;
         }
         return capa;

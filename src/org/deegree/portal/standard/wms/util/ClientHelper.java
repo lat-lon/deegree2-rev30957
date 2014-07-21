@@ -108,9 +108,9 @@ public class ClientHelper {
                 target.append( '0' ).append( '|' ).append( Double.MAX_VALUE );
             }
             target.append( '|' );
-            if ( layer.getAbstract() != null )
-                target.append( layer.getAbstract() ); // value_6
-            else
+            if ( layer.getAbstract() != null ) {
+                appendHTMLEntityEncode( layer.getAbstract(), target );
+            } else
                 target.append( "" ); // value_6
 
             target.append( "' >" );
