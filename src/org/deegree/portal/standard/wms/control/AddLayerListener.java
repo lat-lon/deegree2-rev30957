@@ -165,6 +165,9 @@ public class AddLayerListener extends AbstractListener {
                 extension.setMinScaleHint( wmsLayer.getScaleHint().getMin() );
                 extension.setMaxScaleHint( wmsLayer.getScaleHint().getMax() );
 
+                if ( layer.get( "abstract" ) == null )
+                    layer.put( "abstract", wmsLayer.getAbstract() );
+
                 Layer lay = new Layer( server, (String) layer.get( "name" ), (String) layer.get( "title" ),
                                        (String) layer.get( "abstract" ), srs, null, metadataURL, formatList, styleList,
                                        (Boolean) layer.get( "queryable" ), !(Boolean) layer.get( "visible" ), extension );

@@ -107,6 +107,12 @@ public class ClientHelper {
                 // no scaleHint provided in Layer
                 target.append( '0' ).append( '|' ).append( Double.MAX_VALUE );
             }
+            target.append( '|' );
+            if ( layer.getAbstract() != null ) {
+                appendHTMLEntityEncode( layer.getAbstract(), target );
+            } else
+                target.append( "" ); // value_6
+
             target.append( "' >" );
             appendHTMLEntityEncode( layer.getTitle(), target );
             target.append( "<br/>\n" );

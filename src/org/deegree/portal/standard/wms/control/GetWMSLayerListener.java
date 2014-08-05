@@ -2,9 +2,9 @@
 /*----------------------------------------------------------------------------
  This file is part of deegree, http://deegree.org/
  Copyright (C) 2001-2009 by:
-   Department of Geography, University of Bonn
+ Department of Geography, University of Bonn
  and
-   lat/lon GmbH
+ lat/lon GmbH
 
  This library is free software; you can redistribute it and/or modify it under
  the terms of the GNU Lesser General Public License as published by the Free
@@ -32,16 +32,24 @@
  http://www.geographie.uni-bonn.de/deegree/
 
  e-mail: info@deegree.org
-----------------------------------------------------------------------------*/
+ ----------------------------------------------------------------------------*/
 package org.deegree.portal.standard.wms.control;
 
+import static org.deegree.framework.util.CharsetUtils.convertToReaderWithDefaultCharset;
+
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.HttpException;
+import org.apache.commons.httpclient.methods.GetMethod;
 import org.deegree.datatypes.QualifiedName;
 import org.deegree.datatypes.values.TypedLiteral;
+import org.deegree.enterprise.WebUtils;
 import org.deegree.enterprise.control.AbstractListener;
 import org.deegree.enterprise.control.FormEvent;
 import org.deegree.enterprise.control.RPCMember;
@@ -52,10 +60,12 @@ import org.deegree.enterprise.control.RPCUtils;
 import org.deegree.enterprise.control.RPCWebEvent;
 import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
+import org.deegree.framework.xml.XMLFragment;
 import org.deegree.framework.xml.XMLParsingException;
 import org.deegree.i18n.Messages;
 import org.deegree.ogcwebservices.OWSUtils;
 import org.deegree.ogcwebservices.getcapabilities.InvalidCapabilitiesException;
+import org.deegree.ogcwebservices.getcapabilities.OGCCapabilitiesDocument;
 import org.deegree.ogcwebservices.wms.capabilities.WMSCapabilities;
 import org.deegree.ogcwebservices.wms.capabilities.WMSCapabilitiesDocument;
 import org.deegree.ogcwebservices.wms.capabilities.WMSCapabilitiesDocumentFactory;
@@ -68,13 +78,13 @@ import org.xml.sax.SAXException;
 
 /**
  * Lister class for accessing the layers of WMS and return it to the client.
- *
+ * 
  * @version $Revision: 24802 $
  * @author <a href="mailto:poth@lat-lon.de">Andreas Poth</a>
  * @author last edited by: $Author: apoth $
- *
+ * 
  * @version 1.0. $Revision: 24802 $, $Date: 2010-06-09 14:54:22 +0200 (Mi, 09. Jun 2010) $
- *
+ * 
  * @since 2.0
  */
 public class GetWMSLayerListener extends AbstractListener {
@@ -95,13 +105,13 @@ public class GetWMSLayerListener extends AbstractListener {
         }
 
         WMSCapabilities capabilities = null;
-        URL url = null;
+        String href = null;
         try {
-            url = getURL( rpc );
-            capabilities = getWMSCapabilities( url );
+            href = getURL( rpc );
+            capabilities = getWMSCapabilities( href );
         } catch ( MalformedURLException ue ) {
             LOG.logError( ue.getMessage(), ue );
-            gotoErrorPage( Messages.getMessage( "IGEO_STD_INVALID_URL", url ) );
+            gotoErrorPage( Messages.getMessage( "IGEO_STD_INVALID_URL", href ) );
             return;
         } catch ( PortalException e ) {
             LOG.logError( e.getMessage(), e );
@@ -109,19 +119,19 @@ public class GetWMSLayerListener extends AbstractListener {
             return;
         } catch ( IOException e ) {
             LOG.logError( e.getMessage(), e );
-            gotoErrorPage( Messages.getMessage( "IGEO_STD_ADDWMS_NO_TARGET", url ) );
+            gotoErrorPage( Messages.getMessage( "IGEO_STD_ADDWMS_NO_TARGET", href ) );
             return;
         } catch ( SAXException e ) {
             LOG.logError( e.getMessage(), e );
-            gotoErrorPage( Messages.getMessage( "IGEO_STD_INVALID_XML", url ) );
+            gotoErrorPage( Messages.getMessage( "IGEO_STD_INVALID_XML", href ) );
             return;
         } catch ( InvalidCapabilitiesException e ) {
             LOG.logError( e.getMessage(), e );
-            gotoErrorPage( Messages.getMessage( "IGEO_STD_ADDWMS_INVALID_CAPS", url ) );
+            gotoErrorPage( Messages.getMessage( "IGEO_STD_ADDWMS_INVALID_CAPS", href ) );
             return;
         } catch ( XMLParsingException e ) {
             LOG.logError( e.getMessage(), e );
-            gotoErrorPage( Messages.getMessage( "IGEO_STD_INVALID_XML", url ) );
+            gotoErrorPage( Messages.getMessage( "IGEO_STD_INVALID_XML", href ) );
             return;
         }
 
@@ -136,6 +146,7 @@ public class GetWMSLayerListener extends AbstractListener {
         s = capabilities.getServiceIdentification().getTitle();
         s = s.replaceAll( "'", "" );
         getRequest().setAttribute( "WMSNAME", s );
+        getRequest().setAttribute( "ABSTRACT", capabilities.getLayer().getAbstract() );
 
         OperationsMetadata om = capabilities.getOperationMetadata();
         Operation op = om.getOperation( new QualifiedName( "GetMap" ) );
@@ -172,12 +183,12 @@ public class GetWMSLayerListener extends AbstractListener {
     }
 
     /**
-     *
+     * 
      * @param rpc
      * @return wms url
      * @throws MalformedURLException
      */
-    private URL getURL( RPCWebEvent rpc )
+    private String getURL( RPCWebEvent rpc )
                             throws MalformedURLException {
         RPCMethodCall mc = rpc.getRPCMethodCall();
         RPCParameter param = mc.getParameters()[0];
@@ -210,7 +221,7 @@ public class GetWMSLayerListener extends AbstractListener {
 
         String useAuthentification = RPCUtils.getRpcPropertyAsString( struct, "useAuthentification" );
         getRequest().setAttribute( "USEAUTHENTICATION", "true".equals( useAuthentification ) );
-        if ( "true".equals( useAuthentification )  ) {
+        if ( "true".equals( useAuthentification ) ) {
             String user = RPCUtils.getRpcPropertyAsString( struct, "USER" );
             if ( user != null ) {
                 String password = RPCUtils.getRpcPropertyAsString( struct, "USER" );
@@ -221,31 +232,44 @@ public class GetWMSLayerListener extends AbstractListener {
             }
         }
         LOG.logDebug( "get capabilities URL: ", sb );
-        return new URL( sb.toString() );
+        return sb.toString();
     }
 
-    /**
-     *
-     * @param url
-     * @return the capabilities object
-     * @throws XMLParsingException
-     * @throws PortalException
-     * @throws IOException
-     * @throws SAXException
-     * @throws InvalidCapabilitiesException
-     * @throws XMLParsingException
-     */
-    private WMSCapabilities getWMSCapabilities( URL url )
+    private WMSCapabilities getWMSCapabilities( String href )
                             throws PortalException, IOException, SAXException, InvalidCapabilitiesException,
                             XMLParsingException {
+        InputStream stream = retrieveCapabilities( href );
+        Reader capAsReader = convertToReaderWithDefaultCharset( stream );
 
-        WMSCapabilitiesDocument doc = WMSCapabilitiesDocumentFactory.getWMSCapabilitiesDocument( url );
-        WMSCapabilities capabilities = (WMSCapabilities) doc.parseCapabilities();
+        OGCCapabilitiesDocument doc = new WMSCapabilitiesDocument();
+        doc.load( capAsReader, XMLFragment.DEFAULT_URL );
+        doc = WMSCapabilitiesDocumentFactory.getWMSCapabilitiesDocument( doc.getRootElement() );
 
-        if ( capabilities.getVersion().compareTo( "1.0.0" ) < 0 || capabilities.getVersion().compareTo( "1.1.1" ) > 0 ) {
-            throw new PortalException( "VERSION must be >= 1.0.0 && <= 1.1.1" );
-        }
-
-        return capabilities;
+        return (WMSCapabilities) doc.parseCapabilities();
     }
+
+    private static InputStream retrieveCapabilities( String href )
+                            throws MalformedURLException, IOException, HttpException {
+        // consider that the reference to the capabilities may has been
+        // made by a file URL to a local copy
+        if ( href.toLowerCase().startsWith( "http://" ) || href.toLowerCase().startsWith( "https://" ) ) {
+            HttpClient httpclient = new HttpClient();
+            httpclient = WebUtils.enableProxyUsage( httpclient, new URL( href ) );
+
+            GetMethod httpget = new GetMethod( href );
+            LOG.logDebug( "GetCapabilities: ", href );
+
+            httpclient.executeMethod( httpget );
+            return httpget.getResponseBodyAsStream();
+        } else {
+            URL url = null;
+            if ( href.endsWith( "?" ) ) {
+                url = new URL( href.substring( 0, href.length() - 1 ) );
+            } else {
+                url = new URL( href );
+            }
+            return url.openStream();
+        }
+    }
+
 }

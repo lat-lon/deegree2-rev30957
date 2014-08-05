@@ -40,7 +40,7 @@ import static java.lang.Boolean.parseBoolean;
 import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -53,6 +53,7 @@ import org.deegree.datatypes.QualifiedName;
 import org.deegree.enterprise.WebUtils;
 import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
+import org.deegree.framework.util.CharsetUtils;
 import org.deegree.framework.util.Parameter;
 import org.deegree.framework.util.ParameterList;
 import org.deegree.framework.util.StringTools;
@@ -107,6 +108,7 @@ import org.xml.sax.SAXException;
  * 
  * @version $Revision: 30950 $, $Date: 2011-05-30 11:30:23 +0200 (Mo, 30. Mai 2011) $
  */
+@SuppressWarnings("deprecation")
 public class WebMapContextFactory {
 
     private static final ILogger LOG = LoggerFactory.getLogger( WebMapContextFactory.class );
@@ -929,11 +931,12 @@ public class WebMapContextFactory {
      */
     private static Parameter createParameter( Element element )
                             throws XMLParsingException {
-    	boolean isConstructorRelevant = parseBoolean( XMLTools.getAttrValue(element, null, "isConstructorRelevant", "true") ); 
+        boolean isConstructorRelevant = parseBoolean( XMLTools.getAttrValue( element, null, "isConstructorRelevant",
+                                                                             "true" ) );
         String name = XMLTools.getRequiredStringValue( "Name", CommonNamespaces.DGCNTXTNS, element );
         String value = XMLTools.getRequiredStringValue( "Value", CommonNamespaces.DGCNTXTNS, element );
         // Parameter param = new Parameter_Impl( name+":"+value, value );
-        Parameter param = new Parameter( name, value , isConstructorRelevant);
+        Parameter param = new Parameter( name, value, isConstructorRelevant );
 
         return param;
     }
@@ -1206,8 +1209,10 @@ public class WebMapContextFactory {
 
         // try setting metadataURl again. this time from server.
         if ( metadataURL == null ) {
-            metadataURL = createMetadataURL( name, server );
+            metadataURL = extractCapabilitiesUrl( name, server );
         }
+        if ( abstract_ == null || abstract_.trim().length() <= 0 )
+            abstract_ = retrieveAbstractFromCapabilities( name, server );
 
         // TODO must be removed, if reading capabilities from remote WMS is too slow
         setScaleHint( extElem, name, extension, server, user, sessionID, extension.getAuthentication() );
@@ -1231,37 +1236,45 @@ public class WebMapContextFactory {
         return layer;
     }
 
-    /**
-     * @param layerName
-     *            the layer name from which to take the MetadataURL information
-     * @param server
-     *            the WMS server from which to read the layer information (WMS capabilities document)
-     * @return only the first MetadataURL from the WMS capabilities for the given layer
-     * @throws XMLParsingException
-     */
-    private static BaseURL createMetadataURL( String layerName, Server server )
+    private static String retrieveAbstractFromCapabilities( String layerName, Server server )
+                            throws XMLParsingException {
+        org.deegree.ogcwebservices.wms.capabilities.Layer layer = retrieveLayerFromServer( layerName, server );
+        if ( layer != null ) {
+            String abstract_ = layer.getAbstract();
+            if ( abstract_ != null && abstract_.length() > 0 )
+                return abstract_;
+        }
+        return null;
+    }
+
+    private static BaseURL extractCapabilitiesUrl( String layerName, Server server )
+                            throws XMLParsingException {
+        org.deegree.ogcwebservices.wms.capabilities.Layer layer = retrieveLayerFromServer( layerName, server );
+        if ( layer != null ) {
+            MetadataURL[] urls = layer.getMetadataURL();
+            if ( urls != null && urls.length > 0 ) {
+                return urls[0];
+            }
+        } else {
+            if ( LOG.getLevel() == ILogger.LOG_DEBUG ) {
+                String msg = StringTools.concat( 500, "LayerName '", layerName,
+                                                 "' does not exist in the WMSCapabilities of server ",
+                                                 server.getOnlineResource() );
+                LOG.logDebug( msg );
+            }
+        }
+        return null;
+    }
+
+    private static org.deegree.ogcwebservices.wms.capabilities.Layer retrieveLayerFromServer( String layerName,
+                                                                                              Server server )
                             throws XMLParsingException {
 
         WMSCapabilities capa = (WMSCapabilities) server.getCapabilities();
-        BaseURL metaURL = null;
-
         if ( capa != null ) {
-            org.deegree.ogcwebservices.wms.capabilities.Layer layer = capa.getLayer( layerName );
-            if ( layer != null ) {
-                MetadataURL[] urls = layer.getMetadataURL();
-                if ( urls != null && urls.length > 0 ) {
-                    metaURL = urls[0];
-                }
-            } else {
-                if ( LOG.getLevel() == ILogger.LOG_DEBUG ) {
-                    String msg = StringTools.concat( 500, "LayerName '", layerName,
-                                                     "' does not exist in the WMSCapabilities of server ",
-                                                     server.getOnlineResource() );
-                    LOG.logDebug( msg );
-                }
-            }
+            return capa.getLayer( layerName );
         }
-        return metaURL;
+        return null;
     }
 
     /**
@@ -1606,7 +1619,7 @@ public class WebMapContextFactory {
                 parentNodeId = Integer.parseInt( XMLTools.getStringValue( elem ) );
             }
 
-            // 
+            //
             boolean showLegendGraphic = false;
             elem = XMLTools.getChildElement( "showLegendGraphic", CommonNamespaces.DGCNTXTNS, element );
             if ( elem != null ) {
@@ -1816,7 +1829,7 @@ public class WebMapContextFactory {
         OGCCapabilities capa = null;
         try {
             URL url = null;
-            Reader reader = null;
+            InputStream stream = null;
 
             // consider that the reference to the capabilities may has been
             // made by a file URL to a local copy
@@ -1830,25 +1843,27 @@ public class WebMapContextFactory {
                 LOG.logDebug( "GetCapabilities: ", href );
 
                 httpclient.executeMethod( httpget );
-                reader = new InputStreamReader( httpget.getResponseBodyAsStream() );
+                stream = httpget.getResponseBodyAsStream();
             } else {
                 if ( href.endsWith( "?" ) ) {
                     url = new URL( href.substring( 0, href.length() - 1 ) );
                 }
-                reader = new InputStreamReader( url.openStream() );
+                stream = url.openStream();
             }
+
+            Reader capAsReader = CharsetUtils.convertToReaderWithDefaultCharset( stream );
 
             OGCCapabilitiesDocument doc = null;
             if ( "OGC:WMS".equals( service ) ) {
                 doc = new WMSCapabilitiesDocument();
-                doc.load( reader, XMLFragment.DEFAULT_URL );
+                doc.load( capAsReader, XMLFragment.DEFAULT_URL );
                 doc = WMSCapabilitiesDocumentFactory.getWMSCapabilitiesDocument( doc.getRootElement() );
             } else if ( "OGC:WFS".equals( service ) ) {
                 doc = new WFSCapabilitiesDocument();
-                doc.load( reader, XMLFragment.DEFAULT_URL );
+                doc.load( capAsReader, XMLFragment.DEFAULT_URL );
             } else if ( "OGC:WCS".equals( service ) ) {
                 doc = new WCSCapabilitiesDocument();
-                doc.load( reader, XMLFragment.DEFAULT_URL );
+                doc.load( capAsReader, XMLFragment.DEFAULT_URL );
             } else {
                 throw new XMLParsingException( "not supported service type: " + service );
             }
@@ -1856,7 +1871,7 @@ public class WebMapContextFactory {
             capa = doc.parseCapabilities();
         } catch ( Exception e ) {
             LOG.logWarning( "could not read capabilities: " + href );
-            // LOG.logError( e.getMessage(), e );
+            LOG.logError( e.getMessage(), e );
             return null;
         }
         return capa;

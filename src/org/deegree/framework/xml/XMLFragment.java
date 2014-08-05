@@ -36,6 +36,8 @@
 
 package org.deegree.framework.xml;
 
+import static org.deegree.framework.util.CharsetUtils.readEncoding;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,7 +54,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Properties;
@@ -407,53 +408,6 @@ public class XMLFragment implements Serializable {
     }
 
     /**
-     * reads the encoding of a XML document from its header. If no header available
-     * <code>CharsetUtils.getSystemCharset()</code> will be returned
-     * 
-     * @param pbis
-     * @return encoding of a XML document
-     * @throws IOException
-     */
-    private String readEncoding( PushbackInputStream pbis )
-                            throws IOException {
-        byte[] b = new byte[80];
-        String s = "";
-        int rd = 0;
-
-        LinkedList<byte[]> bs = new LinkedList<byte[]>();
-        LinkedList<Integer> rds = new LinkedList<Integer>();
-        while ( rd < 80 ) {
-            rds.addFirst( pbis.read( b ) );
-            if ( rds.peek() == -1 ) {
-                rds.poll();
-                break;
-            }
-            rd += rds.peek();
-            s += new String( b, 0, rds.peek() ).toLowerCase();
-            bs.addFirst( b );
-            b = new byte[80];
-        }
-
-        String encoding = CharsetUtils.getSystemCharset();
-        if ( s.indexOf( "?>" ) > -1 ) {
-            int p = s.indexOf( "encoding=" );
-            if ( p > -1 ) {
-                StringBuffer sb = new StringBuffer();
-                int k = p + 1 + "encoding=".length();
-                while ( s.charAt( k ) != '"' && s.charAt( k ) != '\'' ) {
-                    sb.append( s.charAt( k++ ) );
-                }
-                encoding = sb.toString();
-            }
-        }
-        while ( !bs.isEmpty() ) {
-            pbis.unread( bs.poll(), 0, rds.poll() );
-        }
-
-        return encoding;
-    }
-
-    /**
      * Initializes the <code>XMLFragment</code> with the content from the given <code>Reader</code>. Sets the SystemId,
      * too.
      * 
@@ -731,7 +685,7 @@ public class XMLFragment implements Serializable {
      * @return the string
      */
     public String getAsString() {
-        return getAsString( CharsetUtils.getSystemCharset()  );
+        return getAsString( CharsetUtils.getSystemCharset() );
     }
 
     /**
@@ -739,7 +693,7 @@ public class XMLFragment implements Serializable {
      * 
      * @return the string
      */
-    public String getAsString(String encoding) {
+    public String getAsString( String encoding ) {
         StringWriter writer = new StringWriter( 50000 );
         Source source = new DOMSource( rootElement );
         try {
