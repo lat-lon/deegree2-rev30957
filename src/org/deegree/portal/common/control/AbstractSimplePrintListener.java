@@ -51,6 +51,7 @@ import java.net.URI;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
@@ -199,15 +200,15 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         ServletContext sc = ( (HttpServletRequest) getRequest() ).getSession( true ).getServletContext();
         String pathx = sc.getRealPath( templateDir ) + '/' + printTemplate + ".jrxml";
 
-        JasperReport jreport = getReport( pathx, vc );
-
         Pair<Integer, Integer> size = getMapTemplateSize( pathx );
         Pair<Integer, Integer> scaleBarBize = getScaleBarSize( pathx );
 
         List<String> getMap = createGetMapRequests( vc, rpc, size );
         String image = performGetMapRequests( getMap );
 
-        String legend = accessLegend( createLegendURLs( vc ) );
+        List<String[]> legendURLs = createLegendURLs( vc );
+        LegendMetadata legendMetadata = analyseLegendMetadata( pathx, vc );
+        List<String> legends = accessLegend( legendMetadata, legendURLs );
 
         BufferedImage scaleBar = null;
         if ( scaleBarBize.first > 0 ) {
@@ -222,7 +223,11 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
 
         Map<String, Object> parameter = new HashMap<String, Object>();
         parameter.put( "MAP", image );
-        parameter.put( "LEGEND", legend );
+        if ( legendMetadata.isDynamicLegend() ) {
+            // TODO
+        } else if ( !legends.isEmpty() ) {
+            parameter.put( "LEGEND", legends.get( 0 ) );
+        }
         parameter.put( "SCALEBAR", scaleBar );
 
         // enable
@@ -256,6 +261,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             }
         }
 
+        JasperReport jreport = getReport( pathx, vc );
         if ( "application/pdf".equals( format ) ) {
             // create the pdf
             Object result = null;
@@ -266,10 +272,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                 LOG.logError( e.getLocalizedMessage(), e );
                 throw new PortalException( Messages.getString( "AbstractSimplePrintListener.REPORTCREATION" ) );
             } finally {
-                File file = new File( image );
-                file.delete();
-                file = new File( legend );
-                file.delete();
+                removeTmpFiles( image, legends );
             }
             forwardPDF( result );
         } else if ( "image/png".equals( format ) ) {
@@ -283,12 +286,18 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                 LOG.logError( e.getLocalizedMessage(), e );
                 throw new PortalException( Messages.getString( "AbstractSimplePrintListener.REPORTCREATION" ) );
             } finally {
-                File file = new File( image );
-                file.delete();
-                file = new File( legend );
-                file.delete();
+                removeTmpFiles( image, legends );
             }
             forwardImage( result, format );
+        }
+    }
+
+    private void removeTmpFiles( String image, List<String> legends ) {
+        File file = new File( image );
+        file.delete();
+        for ( String legend : legends ) {
+            file = new File( legend );
+            file.delete();
         }
     }
 
@@ -313,7 +322,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
     private Pair<Integer, Integer> getScaleBarSize( String path )
                             throws Exception {
         File file = new File( path );
-        XMLFragment xml = new XMLFragment( file.toURL() );
+        XMLFragment xml = new XMLFragment( file.toURI().toURL() );
 
         String xpathW = "detail/band/image/reportElement[./@key = 'scaleBar']/@width";
         String xpathH = "detail/band/image/reportElement[./@key = 'scaleBar']/@height";
@@ -352,18 +361,20 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * accesses the legend URLs passed, draws the result onto an image that are stored in a temporary file. The name of
      * the file will be returned.
      * 
+     * @param legendMetadata
+     * 
      * @param legends
      * @return filename of image file
      */
-    private String accessLegend( List<String[]> legends )
+    private List<String> accessLegend( LegendMetadata legendMetadata, List<String[]> legends )
                             throws IOException {
-        int width = Integer.parseInt( getInitParameter( "LEGENDWIDTH" ) );
-        int height = Integer.parseInt( getInitParameter( "LEGENDHEIGHT" ) );
-        String tmp = getInitParameter( "LEGENDBGCOLOR" );
-        if ( tmp == null ) {
-            tmp = "0xFFFFFF";
+        int height = legendMetadata.getLegendHeight();
+        int width = legendMetadata.getLegendWidth();
+        String legendBgColor = legendMetadata.getLegendBgColor();
+        if ( legendBgColor == null ) {
+            legendBgColor = "0xFFFFFF";
         }
-        Color bg = Color.decode( tmp );
+        Color bg = Color.decode( legendBgColor );
         BufferedImage bi = new BufferedImage( width, height, BufferedImage.TYPE_INT_ARGB );
         Graphics g = bi.getGraphics();
         g.setColor( bg );
@@ -414,7 +425,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         }
         g.dispose();
 
-        return storeImage( bi );
+        return Collections.singletonList( storeImage( bi ) );
     }
 
     /**
@@ -670,7 +681,6 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * @return <code>null</code>
      */
     protected String getVendorspecificParameters( RPCWebEvent rpc ) {
-        // TODO Auto-generated method stub
         return null;
     }
 
@@ -746,7 +756,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         File file = new File( path );
         XMLFragment xml = new XMLFragment( file );
 
-        // manipulate Jasper template DOM tree to add a list of all visible 
+        // manipulate Jasper template DOM tree to add a list of all visible
         // layers and their parents
         String xpath = "jasper:detail/jasper:band/jasper:frame/jasper:reportElement[./@key = 'layerList']";
         Element element = (Element) XMLTools.getNode( xml.getRootElement(), xpath, nsc );
@@ -757,14 +767,15 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             // remove child node because they are just place holders
             for ( Element e : textFields ) {
                 element.removeChild( e );
-            }            
+            }
             MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
-            // add visible layers and their parents 
+            // add visible layers and their parents
             String s = getInitParameter( "SPACING" );
             if ( s == null ) {
                 s = "15";
             }
-            mapModel.walkLayerTree( new Visitor( element, textFields.get( 0 ), textFields.get( 1 ), Integer.parseInt( s ) ) );
+            mapModel.walkLayerTree( new Visitor( element, textFields.get( 0 ), textFields.get( 1 ),
+                                                 Integer.parseInt( s ) ) );
         }
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream( 50000 );
@@ -776,10 +787,26 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         return net.sf.jasperreports.engine.JasperCompileManager.compileReport( jasperDesign );
     }
 
+    private LegendMetadata analyseLegendMetadata( String path, ViewContext vc )
+                            throws Exception {
+        File file = new File( path );
+        XMLFragment xml = new XMLFragment( file );
+        String legendBgColor = getInitParameter( "LEGENDBGCOLOR" );
+        String xpath = "jasper:detail/jasper:band/jasper:image/jasper:reportElement[./@key = 'legendTemplateBand']";
+        Element element = (Element) XMLTools.getNode( xml.getRootElement(), xpath, nsc );
+        if ( element != null ) {
+            int width = XMLTools.getNodeAsInt( element, "@width", nsc, Integer.MIN_VALUE );
+            int height = XMLTools.getNodeAsInt( element, "@height", nsc, Integer.MIN_VALUE );
+            if ( width == Integer.MIN_VALUE || height == Integer.MIN_VALUE ) {
+                return new LegendMetadata( true, width, height, legendBgColor );
+            }
+        }
+        int width = Integer.parseInt( getInitParameter( "LEGENDWIDTH" ) );
+        int height = Integer.parseInt( getInitParameter( "LEGENDHEIGHT" ) );
+        return new LegendMetadata( false, width, height, legendBgColor );
+    }
+
     /**
-     * 
-     * TODO add class documentation here
-     * 
      * @author <a href="mailto:name@deegree.org">Andreas Poth</a>
      * @author last edited by: $Author: apoth $
      * 
@@ -794,7 +821,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         private Element layerTemplate;
 
         private int count = 0;
-        
+
         private int spaceing;
 
         /**
@@ -822,7 +849,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                 if ( !mmLayer.isHidden() ) {
                     Element newGroup = (Element) groupTemplate.cloneNode( true );
                     Node n = XMLTools.getNode( newGroup, "jasper:reportElement/@y", nsc );
-                    n.setNodeValue( Integer.toString( count * spaceing )  );
+                    n.setNodeValue( Integer.toString( count * spaceing ) );
                     count++;
                     n = XMLTools.getNode( newGroup, "jasper:text/text()", nsc );
                     n.setNodeValue( layerGroup.getTitle() );
@@ -843,7 +870,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             if ( !layer.isHidden() ) {
                 Element newLayer = (Element) layerTemplate.cloneNode( true );
                 Node n = XMLTools.getNode( newLayer, "jasper:reportElement/@y", nsc );
-                n.setNodeValue( Integer.toString( count * spaceing )  );
+                n.setNodeValue( Integer.toString( count * spaceing ) );
                 count++;
                 n = XMLTools.getNode( newLayer, "jasper:text/text()", nsc );
                 n.setNodeValue( layer.getTitle() );
