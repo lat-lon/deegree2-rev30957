@@ -53,11 +53,14 @@ public class LegendMetadata {
 
     private final String legendBgColor;
 
-    public LegendMetadata( boolean isDynamicLegend, int legendWidth, int legendHeight, String legendBgColor ) {
+    private final int spacing;
+
+    public LegendMetadata( boolean isDynamicLegend, int legendWidth, int legendHeight, String legendBgColor, int spacing ) {
         this.isDynamicLegend = isDynamicLegend;
         this.legendWidth = legendWidth;
         this.legendHeight = legendHeight;
         this.legendBgColor = legendBgColor;
+        this.spacing = spacing;
 
     }
 
@@ -75,6 +78,10 @@ public class LegendMetadata {
 
     public String getLegendBgColor() {
         return legendBgColor;
+    }
+
+    public int getSpacing() {
+        return spacing;
     }
 
 }

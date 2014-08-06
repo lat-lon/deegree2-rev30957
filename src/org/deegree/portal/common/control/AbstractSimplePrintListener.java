@@ -35,7 +35,8 @@
  ----------------------------------------------------------------------------*/
 package org.deegree.portal.common.control;
 
-import java.awt.Color;
+import static org.deegree.portal.common.control.LegendImageWriter.storeImage;
+
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -44,7 +45,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.MalformedURLException;
@@ -371,65 +371,14 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      */
     private Map<String, String> accessLegend( LegendMetadata legendMetadata, List<String[]> legends )
                             throws IOException {
-        int height = legendMetadata.getLegendHeight();
-        int width = legendMetadata.getLegendWidth();
-        String legendBgColor = legendMetadata.getLegendBgColor();
-        if ( legendBgColor == null ) {
-            legendBgColor = "0xFFFFFF";
-        }
-        Color bg = Color.decode( legendBgColor );
-        BufferedImage bi = new BufferedImage( width, height, BufferedImage.TYPE_INT_ARGB );
-        Graphics g = bi.getGraphics();
-        g.setColor( bg );
-        g.fillRect( 0, 0, bi.getWidth(), bi.getHeight() );
-        g.setColor( Color.BLACK );
-        int k = 10;
+        String missingImageUrl = null;
+        if ( getInitParameter( "MISSING_IMAGE" ) != null )
+            missingImageUrl = getHomePath() + getInitParameter( "MISSING_IMAGE" );
+        String tempDir = getInitParameter( "TEMPDIR" );
+        LegendImageWriter legendImageWriter = new LegendImageWriter( missingImageUrl, tempDir );
 
-        for ( int i = 0; i < legends.size(); i++ ) {
-            if ( k > bi.getHeight() ) {
-                if ( LOG.getLevel() <= ILogger.LOG_WARNING ) {
-                    LOG.logWarning( "The necessary legend size is larger than the available legend space." );
-                }
-            }
-            String[] s = legends.get( i );
-            if ( s[1] != null ) {
-                LOG.logDebug( "reading legend: " + s[1] );
-                Image img = null;
-                try {
-                    img = ImageUtils.loadImage( new URL( s[1] ) );
-                } catch ( Exception e ) {
-                    if ( LOG.getLevel() == ILogger.LOG_DEBUG ) {
-                        String msg = StringTools.concat( 400, "Exception for Layer: ", s[0], " - ", s[1] );
-                        LOG.logDebug( msg );
-                        LOG.logDebug( e.getLocalizedMessage() );
-                    }
-                    if ( getInitParameter( "MISSING_IMAGE" ) != null ) {
-                        String missingImageUrl = getHomePath() + getInitParameter( "MISSING_IMAGE" );
-                        File missingImage = new File( missingImageUrl );
-                        if ( missingImage.exists() ) {
-                            img = ImageUtils.loadImage( missingImage );
-                        }
-                    }
-                }
-                if ( img != null ) {
-                    if ( img.getWidth( null ) < 50 ) {
-                        // it is assumed that no label is assigned
-                        g.drawImage( img, 0, k, null );
-                        g.drawString( s[0], img.getWidth( null ) + 10, k + img.getHeight( null ) / 2 );
-                    } else {
-                        g.drawImage( img, 0, k, null );
-                    }
-                    k = k + img.getHeight( null ) + 10;
-                }
-            } else {
-                g.drawString( "- " + s[0], 0, k + 10 );
-                k = k + 20;
-            }
-        }
-        g.dispose();
-        Map<String, String> parameterName2LegendUrl = new HashMap<String, String>();
-        parameterName2LegendUrl.put( "LEGEND", storeImage( bi ) );
-        return parameterName2LegendUrl;
+        ServletContext sc = ( (HttpServletRequest) this.getRequest() ).getSession( true ).getServletContext();
+        return legendImageWriter.accessLegend( sc, legendMetadata, legends );
     }
 
     /**
@@ -471,7 +420,10 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             g.drawImage( img, 0, 0, null );
         }
         g.dispose();
-        return storeImage( bi );
+
+        String tempDir = getInitParameter( "TEMPDIR" );
+        ServletContext sc = ( (HttpServletRequest) this.getRequest() ).getSession( true ).getServletContext();
+        return storeImage( sc, tempDir, bi );
     }
 
     /**
@@ -498,35 +450,6 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         MapUtils.drawScalbar( (Graphics2D) img.getGraphics(), img.getWidth(), bbox, new Dimension( w, h ), null,
                               fontSize );
         return img;
-    }
-
-    /**
-     * stores the passed image in the defined temporary directory and returns the dynamicly created filename
-     * 
-     * @param bi
-     * @return filename of image file
-     * @throws IOException
-     */
-    private String storeImage( BufferedImage bi )
-                            throws IOException {
-
-        String s = UUID.randomUUID().toString();
-        String tempDir = getInitParameter( "TEMPDIR" );
-        if ( !tempDir.endsWith( "/" ) ) {
-            tempDir = tempDir + '/';
-        }
-        if ( tempDir.startsWith( "/" ) ) {
-            tempDir = tempDir.substring( 1, tempDir.length() );
-        }
-        ServletContext sc = ( (HttpServletRequest) this.getRequest() ).getSession( true ).getServletContext();
-        String fileName = StringTools.concat( 300, sc.getRealPath( tempDir ), '/', s, ".png" );
-
-        FileOutputStream fos = new FileOutputStream( new File( fileName ) );
-
-        ImageUtils.saveImage( bi, fos, "png", 1 );
-        fos.close();
-
-        return fileName;
     }
 
     private void forwardPDF( Object result )
@@ -759,7 +682,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         return net.sf.jasperreports.engine.JasperCompileManager.compileReport( jasperDesign );
     }
 
-    XMLFragment manipulateJrxml( String path, ViewContext vc, Map<String, String> parameterName2Legends )
+    private XMLFragment manipulateJrxml( String path, ViewContext vc, Map<String, String> parameterName2Legends )
                             throws MalformedURLException, IOException, SAXException, XMLParsingException, Exception {
         File file = new File( path );
         XMLFragment xml = new XMLFragment( file );
@@ -778,12 +701,9 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             }
             MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
             // add visible layers and their parents
-            String s = getInitParameter( "SPACING" );
-            if ( s == null ) {
-                s = "15";
-            }
-            mapModel.walkLayerTree( new Visitor( element, textFields.get( 0 ), textFields.get( 1 ),
-                                                 Integer.parseInt( s ) ) );
+
+            int spacing = parseSpacing( 15 );
+            mapModel.walkLayerTree( new Visitor( element, textFields.get( 0 ), textFields.get( 1 ), spacing ) );
         }
         if ( !parameterName2Legends.isEmpty() ) {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -834,6 +754,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         File file = new File( path );
         XMLFragment xml = new XMLFragment( file );
         String legendBgColor = getInitParameter( "LEGENDBGCOLOR" );
+        int spacing = parseSpacing( 10 );
         String xpath = "jasper:detail/jasper:band/jasper:image/jasper:reportElement[./@key = 'legendTemplateBand']";
         Element element = (Element) XMLTools.getNode( xml.getRootElement(), xpath, nsc );
         if ( element != null ) {
@@ -841,13 +762,24 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             int height = XMLTools.getNodeAsInt( element, "@height", nsc, Integer.MIN_VALUE );
             if ( width != Integer.MIN_VALUE && height != Integer.MIN_VALUE ) {
                 LOG.logDebug( "Found legend on multiple pages, each with with " + width + " and height" + height );
-                return new LegendMetadata( true, width, height, legendBgColor );
+                return new LegendMetadata( true, width, height, legendBgColor, spacing );
             }
         }
         int width = Integer.parseInt( getInitParameter( "LEGENDWIDTH" ) );
         int height = Integer.parseInt( getInitParameter( "LEGENDHEIGHT" ) );
         LOG.logDebug( "Default legend." );
-        return new LegendMetadata( false, width, height, legendBgColor );
+        return new LegendMetadata( false, width, height, legendBgColor, spacing );
+    }
+
+    private int parseSpacing( int defaultSpacing ) {
+        try {
+            String spacingParameter = getInitParameter( "SPACING" );
+            if ( spacingParameter != null )
+                return Integer.parseInt( spacingParameter );
+        } catch ( NumberFormatException e ) {
+            LOG.logWarning( "Could not parse parameter SPACING (from controller.xml): " + e.getMessage() );
+        }
+        return defaultSpacing;
     }
 
     /**
