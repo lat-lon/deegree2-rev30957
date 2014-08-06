@@ -62,6 +62,7 @@ import java.util.UUID;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import net.sf.jasperreports.engine.JRDataSource;
 import net.sf.jasperreports.engine.JREmptyDataSource;
@@ -106,6 +107,8 @@ import org.deegree.portal.context.MapModelVisitor;
 import org.deegree.portal.context.Style;
 import org.deegree.portal.context.ViewContext;
 import org.deegree.security.drm.model.User;
+import org.w3c.dom.CDATASection;
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
@@ -260,7 +263,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             }
         }
 
-        XMLFragment xmlReport = manipulateJrxml( pathx, vc, legendMetadata, parameterName2Legends );
+        XMLFragment xmlReport = manipulateJrxml( pathx, vc, parameterName2Legends );
         JasperReport jreport = getReport( xmlReport );
         if ( "application/pdf".equals( format ) ) {
             // create the pdf
@@ -756,8 +759,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         return net.sf.jasperreports.engine.JasperCompileManager.compileReport( jasperDesign );
     }
 
-    private XMLFragment manipulateJrxml( String path, ViewContext vc, LegendMetadata legendMetadata,
-                                         Map<String, String> parameterName2Legends )
+    XMLFragment manipulateJrxml( String path, ViewContext vc, Map<String, String> parameterName2Legends )
                             throws MalformedURLException, IOException, SAXException, XMLParsingException, Exception {
         File file = new File( path );
         XMLFragment xml = new XMLFragment( file );
@@ -783,7 +785,48 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             mapModel.walkLayerTree( new Visitor( element, textFields.get( 0 ), textFields.get( 1 ),
                                                  Integer.parseInt( s ) ) );
         }
+        if ( !parameterName2Legends.isEmpty() ) {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setValidating( true );
+            factory.setExpandEntityReferences( false );
+
+            String xpathToParameter = "/jasper:jasperReport/jasper:parameter[./@name = 'LEGEND']";
+            Element templateParamElement = (Element) XMLTools.getNode( xml.getRootElement(), xpathToParameter, nsc );
+            Node paramParentNode = templateParamElement.getParentNode();
+
+            String xpathToLegendBand = "/jasper:jasperReport/jasper:detail/jasper:band[jasper:image/jasper:reportElement/@key = 'legendTemplateBand']";
+            Element templateLegendBandElement = (Element) XMLTools.getNode( xml.getRootElement(), xpathToLegendBand,
+                                                                            nsc );
+            Node legendBandParentNode = templateLegendBandElement.getParentNode();
+
+            for ( String legendParameterName : parameterName2Legends.keySet() ) {
+                manipulateParameter( templateParamElement, paramParentNode, legendParameterName );
+                manipulateBand( templateLegendBandElement, legendBandParentNode, legendParameterName );
+            }
+            paramParentNode.removeChild( templateParamElement );
+            legendBandParentNode.removeChild( templateLegendBandElement );
+        }
         return xml;
+    }
+
+    private void manipulateBand( Element templateLegendBandElement, Node legendBandParentNode,
+                                 String legendParameterName )
+                            throws XMLParsingException {
+        Element clonedLegendBandElement = (Element) templateLegendBandElement.cloneNode( true );
+        String xpathToLegendBandParameter = "jasper:image/jasper:imageExpression";
+        Element imgExpressionElement = (Element) XMLTools.getNode( clonedLegendBandElement, xpathToLegendBandParameter,
+                                                                   nsc );
+        Document ownerDocument = imgExpressionElement.getOwnerDocument();
+        CDATASection newCData = ownerDocument.createCDATASection( "$P{" + legendParameterName + "}" );
+        Node oldCData = imgExpressionElement.getFirstChild();
+        imgExpressionElement.replaceChild( newCData, oldCData );
+        legendBandParentNode.insertBefore( clonedLegendBandElement, templateLegendBandElement );
+    }
+
+    private void manipulateParameter( Element templateParamElement, Node paramParentNode, String legendParameterName ) {
+        Element clonedParameterElement = (Element) templateParamElement.cloneNode( true );
+        clonedParameterElement.setAttribute( "name", legendParameterName );
+        paramParentNode.insertBefore( clonedParameterElement, templateParamElement );
     }
 
     private LegendMetadata analyseLegendMetadata( String path, ViewContext vc )
