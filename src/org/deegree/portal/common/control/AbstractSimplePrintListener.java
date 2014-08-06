@@ -47,16 +47,17 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 
 import javax.servlet.ServletContext;
@@ -208,7 +209,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
 
         List<String[]> legendURLs = createLegendURLs( vc );
         LegendMetadata legendMetadata = analyseLegendMetadata( pathx, vc );
-        List<String> legends = accessLegend( legendMetadata, legendURLs );
+        Map<String, String> parameterName2Legends = accessLegend( legendMetadata, legendURLs );
 
         BufferedImage scaleBar = null;
         if ( scaleBarBize.first > 0 ) {
@@ -223,10 +224,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
 
         Map<String, Object> parameter = new HashMap<String, Object>();
         parameter.put( "MAP", image );
-        if ( legendMetadata.isDynamicLegend() ) {
-            // TODO
-        } else if ( !legends.isEmpty() ) {
-            parameter.put( "LEGEND", legends.get( 0 ) );
+        for ( Entry<String, String> parameterName2Legend : parameterName2Legends.entrySet() ) {
+            parameter.put( parameterName2Legend.getKey(), parameterName2Legend.getValue() );
         }
         parameter.put( "SCALEBAR", scaleBar );
 
@@ -261,7 +260,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             }
         }
 
-        JasperReport jreport = getReport( pathx, vc );
+        XMLFragment xmlReport = manipulateJrxml( pathx, vc, legendMetadata, parameterName2Legends );
+        JasperReport jreport = getReport( xmlReport );
         if ( "application/pdf".equals( format ) ) {
             // create the pdf
             Object result = null;
@@ -272,7 +272,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                 LOG.logError( e.getLocalizedMessage(), e );
                 throw new PortalException( Messages.getString( "AbstractSimplePrintListener.REPORTCREATION" ) );
             } finally {
-                removeTmpFiles( image, legends );
+                removeTmpFiles( image, parameterName2Legends );
             }
             forwardPDF( result );
         } else if ( "image/png".equals( format ) ) {
@@ -286,17 +286,17 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                 LOG.logError( e.getLocalizedMessage(), e );
                 throw new PortalException( Messages.getString( "AbstractSimplePrintListener.REPORTCREATION" ) );
             } finally {
-                removeTmpFiles( image, legends );
+                removeTmpFiles( image, parameterName2Legends );
             }
             forwardImage( result, format );
         }
     }
 
-    private void removeTmpFiles( String image, List<String> legends ) {
+    private void removeTmpFiles( String image, Map<String, String> legends ) {
         File file = new File( image );
         file.delete();
-        for ( String legend : legends ) {
-            file = new File( legend );
+        for ( Entry<String, String> legend : legends.entrySet() ) {
+            file = new File( legend.getValue() );
             file.delete();
         }
     }
@@ -366,7 +366,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * @param legends
      * @return filename of image file
      */
-    private List<String> accessLegend( LegendMetadata legendMetadata, List<String[]> legends )
+    private Map<String, String> accessLegend( LegendMetadata legendMetadata, List<String[]> legends )
                             throws IOException {
         int height = legendMetadata.getLegendHeight();
         int width = legendMetadata.getLegendWidth();
@@ -424,8 +424,9 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             }
         }
         g.dispose();
-
-        return Collections.singletonList( storeImage( bi ) );
+        Map<String, String> parameterName2LegendUrl = new HashMap<String, String>();
+        parameterName2LegendUrl.put( "LEGEND", storeImage( bi ) );
+        return parameterName2LegendUrl;
     }
 
     /**
@@ -744,15 +745,20 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         }
     }
 
-    /**
-     * 
-     * @param path
-     * @param vc
-     * @return Jasper template
-     * @throws Exception
-     */
-    protected JasperReport getReport( String path, ViewContext vc )
+    protected JasperReport getReport( XMLFragment xml )
                             throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream( 50000 );
+        xml.write( bos, null );
+        ByteArrayInputStream bis = new ByteArrayInputStream( bos.toByteArray() );
+        JasperDesign jasperDesign = net.sf.jasperreports.engine.xml.JRXmlLoader.load( bis );
+        bis.close();
+        bos.close();
+        return net.sf.jasperreports.engine.JasperCompileManager.compileReport( jasperDesign );
+    }
+
+    private XMLFragment manipulateJrxml( String path, ViewContext vc, LegendMetadata legendMetadata,
+                                         Map<String, String> parameterName2Legends )
+                            throws MalformedURLException, IOException, SAXException, XMLParsingException, Exception {
         File file = new File( path );
         XMLFragment xml = new XMLFragment( file );
 
@@ -777,14 +783,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             mapModel.walkLayerTree( new Visitor( element, textFields.get( 0 ), textFields.get( 1 ),
                                                  Integer.parseInt( s ) ) );
         }
-
-        ByteArrayOutputStream bos = new ByteArrayOutputStream( 50000 );
-        xml.write( bos, null );
-        ByteArrayInputStream bis = new ByteArrayInputStream( bos.toByteArray() );
-        JasperDesign jasperDesign = net.sf.jasperreports.engine.xml.JRXmlLoader.load( bis );
-        bis.close();
-        bos.close();
-        return net.sf.jasperreports.engine.JasperCompileManager.compileReport( jasperDesign );
+        return xml;
     }
 
     private LegendMetadata analyseLegendMetadata( String path, ViewContext vc )
@@ -797,12 +796,14 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         if ( element != null ) {
             int width = XMLTools.getNodeAsInt( element, "@width", nsc, Integer.MIN_VALUE );
             int height = XMLTools.getNodeAsInt( element, "@height", nsc, Integer.MIN_VALUE );
-            if ( width == Integer.MIN_VALUE || height == Integer.MIN_VALUE ) {
+            if ( width != Integer.MIN_VALUE && height != Integer.MIN_VALUE ) {
+                LOG.logDebug( "Found legend on multiple pages, each with with " + width + " and height" + height );
                 return new LegendMetadata( true, width, height, legendBgColor );
             }
         }
         int width = Integer.parseInt( getInitParameter( "LEGENDWIDTH" ) );
         int height = Integer.parseInt( getInitParameter( "LEGENDHEIGHT" ) );
+        LOG.logDebug( "Default legend." );
         return new LegendMetadata( false, width, height, legendBgColor );
     }
 
