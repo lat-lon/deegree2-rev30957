@@ -68,11 +68,11 @@ public class LegendMetadata {
         return isDynamicLegend;
     }
 
-    public int getLegendWidth() {
+    public int getWidth() {
         return legendWidth;
     }
 
-    public int getLegendHeight() {
+    public int getHeight() {
         return legendHeight;
     }
 

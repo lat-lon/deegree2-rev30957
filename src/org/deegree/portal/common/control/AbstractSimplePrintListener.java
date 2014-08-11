@@ -761,7 +761,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             int width = XMLTools.getNodeAsInt( element, "@width", nsc, Integer.MIN_VALUE );
             int height = XMLTools.getNodeAsInt( element, "@height", nsc, Integer.MIN_VALUE );
             if ( width != Integer.MIN_VALUE && height != Integer.MIN_VALUE ) {
-                LOG.logDebug( "Found legend on multiple pages, each with with " + width + " and height" + height );
+                LOG.logDebug( "Found legend on multiple pages, each page with width " + width + " and height " + height );
                 return new LegendMetadata( true, width, height, legendBgColor, spacing );
             }
         }
