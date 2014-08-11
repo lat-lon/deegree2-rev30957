@@ -77,7 +77,7 @@ public class LayerTreeListener extends AbstractListener {
                 List<MapModelEntry> mme = lg.getMapModelEntries();
 
                 sb.append( "{'text' : " );
-                sb.append( "'" ).append( lg.getTitle() ).append( "'," );
+                sb.append( "'" ).append( encodeWithHtmlEntity( lg.getTitle() ) ).append( "'," );
                 sb.append( "'id' : '" ).append( lg.getIdentifier() ).append( "'," );
                 sb.append( "'checked': true," );
                 sb.append( "'expanded': " ).append( lg.isExpanded() ).append( "," );
@@ -136,7 +136,7 @@ public class LayerTreeListener extends AbstractListener {
                 s = layer.getLayer().getStyleList().getCurrentStyle().getLegendURL().getOnlineResource();
             }
             sb.append( "{'text' : " );
-            sb.append( "'" ).append( layer.getTitle() ).append( "'," );
+            sb.append( "'" ).append( encodeWithHtmlEntity( layer.getTitle() ) ).append( "'," );
             sb.append( "'id' : '" ).append( layer.getLayer().getExtension().getIdentifier() ).append( "'," );
             if ( s != null ) {
                 sb.append( "'img' : '" ).append( s.toExternalForm() ).append( "'," );
@@ -157,7 +157,7 @@ public class LayerTreeListener extends AbstractListener {
         List<MapModelEntry> children = lg.getMapModelEntries();
 
         sb.append( "{'text' : " );
-        sb.append( "'" ).append( lg.getTitle() ).append( "'," );
+        sb.append( "'" ).append( encodeWithHtmlEntity( lg.getTitle() ) ).append( "'," );
         sb.append( "'id' : '" ).append( lg.getIdentifier() ).append( "'," );
         sb.append( "'checked': " ).append( !lg.isHidden() ).append( "," );
         sb.append( "'expanded': " ).append( lg.isExpanded() ).append( "," );
