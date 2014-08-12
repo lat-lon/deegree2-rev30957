@@ -211,7 +211,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         String image = performGetMapRequests( getMap );
 
         List<String[]> legendURLs = createLegendURLs( vc );
-        LegendMetadata legendMetadata = analyseLegendMetadata( pathx, vc );
+        LegendMetadata legendMetadata = parseLegendMetadata( pathx, vc );
         Map<String, String> parameterName2Legends = accessLegend( legendMetadata, legendURLs );
 
         BufferedImage scaleBar = null;
@@ -749,7 +749,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         paramParentNode.insertBefore( clonedParameterElement, templateParamElement );
     }
 
-    private LegendMetadata analyseLegendMetadata( String path, ViewContext vc )
+    private LegendMetadata parseLegendMetadata( String path, ViewContext vc )
                             throws Exception {
         File file = new File( path );
         XMLFragment xml = new XMLFragment( file );
@@ -760,15 +760,22 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         if ( element != null ) {
             int width = XMLTools.getNodeAsInt( element, "@width", nsc, Integer.MIN_VALUE );
             int height = XMLTools.getNodeAsInt( element, "@height", nsc, Integer.MIN_VALUE );
+            int numberOfColumns = calculateNoOfColumns( width, height );
             if ( width != Integer.MIN_VALUE && height != Integer.MIN_VALUE ) {
                 LOG.logDebug( "Found legend on multiple pages, each page with width " + width + " and height " + height );
-                return new LegendMetadata( true, width, height, legendBgColor, spacing );
+                return new LegendMetadata( true, width, height, legendBgColor, numberOfColumns, spacing );
             }
         }
         int width = Integer.parseInt( getInitParameter( "LEGENDWIDTH" ) );
         int height = Integer.parseInt( getInitParameter( "LEGENDHEIGHT" ) );
         LOG.logDebug( "Default legend." );
-        return new LegendMetadata( false, width, height, legendBgColor, spacing );
+        return new LegendMetadata( false, width, height, legendBgColor, 1, spacing );
+    }
+
+    private int calculateNoOfColumns( int width, int height ) {
+        if ( width > height )
+            return 4;
+        return 2;
     }
 
     private int parseSpacing( int defaultSpacing ) {
