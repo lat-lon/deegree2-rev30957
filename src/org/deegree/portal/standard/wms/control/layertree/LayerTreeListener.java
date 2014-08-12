@@ -145,7 +145,7 @@ public class LayerTreeListener extends AbstractListener {
                 String encodedAbstract = encodeWithHtmlEntity( layer.getLayer().getAbstract() );
                 sb.append( "'qtip': '" ).append( encodedAbstract ).append( "'," );
             } else {
-                sb.append( "'qtip': '" ).append( layer.getTitle() ).append( "'," );
+                sb.append( "'qtip': '" ).append( encodeWithHtmlEntity( layer.getTitle() ) ).append( "'," );
             }
 
             sb.append( "'checked': " ).append( layer.isHidden() ? "false," : "true," );
@@ -191,5 +191,5 @@ public class LayerTreeListener extends AbstractListener {
         }
         return buf.toString();
     }
-    
+
 }
