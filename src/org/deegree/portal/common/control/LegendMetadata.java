@@ -45,6 +45,10 @@ package org.deegree.portal.common.control;
  */
 public class LegendMetadata {
 
+    private final int maxSizeToFitInPercent;
+
+    private final String toLargeMsg;
+
     private final boolean isDynamicLegend;
 
     private final int legendWidth;
@@ -53,14 +57,20 @@ public class LegendMetadata {
 
     private final String legendBgColor;
 
+    private final int columns;
+
     private final int spacing;
 
-    public LegendMetadata( boolean isDynamicLegend, int legendWidth, int legendHeight, String legendBgColor, int spacing ) {
+    public LegendMetadata( boolean isDynamicLegend, int legendWidth, int legendHeight, String legendBgColor,
+                           int columns, int spacing, int maxSizeToFitInPercent, String toLargeMsg ) {
         this.isDynamicLegend = isDynamicLegend;
         this.legendWidth = legendWidth;
         this.legendHeight = legendHeight;
         this.legendBgColor = legendBgColor;
+        this.columns = columns;
         this.spacing = spacing;
+        this.maxSizeToFitInPercent = maxSizeToFitInPercent;
+        this.toLargeMsg = toLargeMsg;
 
     }
 
@@ -80,8 +90,20 @@ public class LegendMetadata {
         return legendBgColor;
     }
 
+    public int getColumns() {
+        return columns;
+    }
+
     public int getSpacing() {
         return spacing;
+    }
+
+    public int getMaxSizeToFitInPercent() {
+        return maxSizeToFitInPercent;
+    }
+
+    public String getToLargeMsg() {
+        return toLargeMsg;
     }
 
 }

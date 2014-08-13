@@ -1,8 +1,12 @@
 package org.deegree.portal.common.control;
 
+import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.imageio.ImageIO;
 
 import junit.framework.TestCase;
 
@@ -15,16 +19,15 @@ import org.deegree.portal.common.control.LegendImageWriter.LegendImage;
  * Scenario 1:
  * 
  * Tests using this scenario: 
- *  * testLayoutOnMultiplePagesWithOneLegendFittingOnOnePage
+ *  * testSzenario1
  * 
- * Page dimension: 100 x 83
+ * Page dimension: 100 x 100
  * 
- *  _______ 0
- * | |1 |   
- * | |__|   
- * |_|_____ 83
- * 
- *   10 14
+ *  ____ 0
+ * |1 | |  
+ * |__| |  
+ * |____| 100
+ * 0    100
  * 
  * Legend dimensions (width x height):
  *  1: 4x5
@@ -34,48 +37,48 @@ import org.deegree.portal.common.control.LegendImageWriter.LegendImage;
  * Scenario 2:
  * 
  * Tests using this scenario: 
- *  * testLayoutOnMultiplePagesWithMultipleLegendsFittingOnOnePage
+ *  * testSzenario2
  * 
- * Page dimension: 100 x 83
+ * Page dimension: 100 x 50
  * 
- *  ____________________   0
- * | |    |   | 2 |   | |
- * | | 3  | 1 |___|   | |
- * | |    |___|       | |
- * | |____|4 |        | |  
- * | |    |__|        | |
- * | |                | |
- * |_|________________|_|  83
- *   10   35 55   75 90 100
+ *  ________________   0
+ * |    ||    || 4  |
+ * | 1  || 2  ||____|
+ * |    ||____||    |
+ * |____||3 | ||    |  
+ * |    ||__| ||    |
+ * |    ||    ||    |
+ * |____||____||____|  50
+ * 0   30 35 65 70   100
  * 
  * Legend dimensions (width x height):
  *  1: 20x45
  *  2: 20x20
- *  3: 25x50
- *  4: 13x23
+ *  3: 13x23
+ *  4: 25x50
  * </pre>
  * 
  * <pre>
  * Scenario 3:
  * 
  * Tests using this scenario: 
- *  * testLayoutOnMultiplePagesWithMultipleLegendsOneToHeightFittingOnOnePage
+ *  * testSzenario3
  * 
- * Page dimension: 100 x 83
+ * Page dimension: 100 x 85
  * 
- *  ____________________   0
- * | |   |   | 3|     | |
- * | | 2 | 1 |__|     | |
- * | |   |   |        | |
- * | |   |   |        | |  
- * | |   |___|        | |
- * | |___|            | |
- * |_|________________|_|   83
- *   10   30 55   75 90 100
- * 
+ *  ________________   0
+ * |    ||    || 3  |
+ * | 1  || 2  ||____|
+ * |    ||    ||    |
+ * |    ||    ||    |  
+ * |____||    ||    |
+ * |    ||    ||    |
+ * |____||____||____|  85
+ * 0   30 35 65 70   100
+ *  
  * Legend dimensions (width x height):
  *  1: 25x60
- *  2: 20x126
+ *  2: 20x90 (must be scaled!)
  *  3: 14x20
  * 
  * </pre>
@@ -84,34 +87,35 @@ import org.deegree.portal.common.control.LegendImageWriter.LegendImage;
  * Scenario 4:
  * 
  * Tests using this scenario: 
- *  * testLayoutOnMultiplePagesWithMultipleLegendsFittingOnTwoPages
+ *  * testSzenario4
  * 
- * Page dimension: 100 x 83
+ * Page dimension: 100 x 60
  * 
- *  ____________________   0
- * | |      |     |   | |
- * | |  1   |  2  |   | |
- * | |      |     |   | |
- * | |      |     |   | |  
- * | |      |_____|   | |
- * | |______|         | |
- * |_|________________|_|  83 
- *   10     45   82  90 100
- * 100
- *  ____________________   0
- * | |   |            | |
- * | | 3 |            | |
- * | |   |            | |
- * | |___|            | |  
- * | |                | |
- * | |                | |
- * |_|________________|_|  83
- *   10  20         90 100
+ *  ________________   0
+ * |    ||    || 3  |
+ * | 1  || 2  ||____|
+ * |    ||    ||    |
+ * |    ||    ||    |  
+ * |    ||    ||    |
+ * |    ||____||    |
+ * |____||____||____|  60
+ * 0   30 35 65 70   100
+ * 
+ *  ________________   0
+ * |    ||    ||    |
+ * | 4  ||    ||    |
+ * |    ||    ||    |
+ * |    ||    ||    |  
+ * |    ||    ||    |
+ * |____||    ||    |
+ * |____||____||____|  60
+ * 0   30 35 65 70   100
  *   
  * Legend dimensions (width x height):
  *  1: 25x60
- *  2: 20x126
+ *  2: 20x45
  *  3: 14x20
+ *  4: 25x50
  * 
  * </pre>
  * 
@@ -119,81 +123,27 @@ import org.deegree.portal.common.control.LegendImageWriter.LegendImage;
  * Scenario 5:
  * 
  * Tests using this scenario: 
- *  * testLayoutOnMultiplePagesWithMultipleLegendsTooHeightFittingOnTwoPages
+ *  * testSzenario5
  * 
- * Page dimension: 100 x 83
+ * Page dimension: 100 x 100
  * 
- *  ________________  0
- * |      |     |   |
- * |  1   |  2  |   |
- * |      |     |   |
- * |      |     |   |  
- * |      |     |   |
- * |      |     |   |
- * |______|_____|___| 83
- * 0               100
- * 
- *  ________________  0
- * |      |         |
- * |  3   |         |
- * |      |         |
- * |      |         |  
- * |      |         |
- * |      |         |
- * |______|_________| 83
- * 0               100
- *   
+ *  ________________   0
+ * |    ||    ||    |
+ * | 1  ||  2 ||    |
+ * |    ||____||    |
+ * |    ||    ||    |  
+ * |    ||__3_||    |
+ * |____||    ||    |
+ * |____||____||____|  100
+ * 0   30 35 65 70   100
+ *    
  * Legend dimensions (width x height):
- *  1: 160x280
- *  2: 120x212
- *  3: 80x141
+ *  1: 25x60
+ *  2: 20x45
+ *  3: 80x141 (does not fit!)
  * 
  * </pre>
  * 
- * <pre>
- * Scenario 5:
- * 
- * Tests using this scenario: 
- *  * testLayoutOnMultiplePagesWithMultipleLegendsTooHeightFittingOnThreePages
- * 
- * Page dimension: 100 x 83
- * 
- *  ________________  0
- * |      |         |
- * |  1   |         |
- * |      |         |
- * |      |         |  
- * |      |         |
- * |      |         |
- * |______|_________| 83
- * 0               100
- * 
- *  _________________ 0
- * |      |         |
- * |  2   |         |
- * |      |         |
- * |      |         |  
- * |      |         |
- * |      |         |
- * |______|_________|  83
- * 0               100
- *   
- *  _________________  0
- * |      |         |
- * |  3   |         |
- * |      |         |
- * |      |         |  
- * |      |         |
- * |      |         |
- * |______|_________| 83
- * 0               100
- *   
- * Legend dimensions (width x height):
- *  1: 160x252
- *  2: 120x189
- *  3: 80x126
- * 
- * </pre>
  * 
  * @author <a href="mailto:goltz@lat-lon.de">Lyn Goltz</a>
  * @author last edited by: $Author: lyn $
@@ -202,22 +152,19 @@ import org.deegree.portal.common.control.LegendImageWriter.LegendImage;
  */
 public class LegendImageWriterTest extends TestCase {
 
-    private static final int SPACING = 10;
-
-    private static final int PAGE_WIDTH = 100;
-
-    private static final int PAGE_HEIGHT = 83;
+    private static final int SPACING = 5;
 
     private final LegendImageWriter legendComponent = new LegendImageWriter( null, null );
 
-    public void testLayoutOnMultiplePagesWithOneLegendFittingOnOnePage()
+    public void testSzenario1()
                             throws Exception {
         int childWidth = 4;
         int childHeight = 5;
         String[] legend = createLegend( "test1", childWidth, childHeight );
         List<String[]> legends = createLegends( legend );
 
-        List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata(), legends );
+        List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata( 100, 100 ),
+                                                                                 legends );
         assertEquals( 1, legendPages.size() );
 
         List<LegendImage> childsOnPageOne = legendPages.get( 0 );
@@ -230,131 +177,139 @@ public class LegendImageWriterTest extends TestCase {
         assertEquals( childHeight, firstChildOnPageOne.getHeight() );
     }
 
-    public void testLayoutOnMultiplePagesWithMultipleLegendsFittingOnOnePage()
+    public void testSzenario2()
                             throws Exception {
         String[] legend1 = createLegend( "test1", 20, 45 );
         String[] legend2 = createLegend( "test2", 20, 20 );
-        String[] legend3 = createLegend( "test3", 25, 50 );
-        String[] legend4 = createLegend( "test4", 13, 23 );
+        String[] legend3 = createLegend( "test3", 13, 23 );
+        String[] legend4 = createLegend( "test4", 25, 50 );
 
         List<String[]> legends = createLegends( legend1, legend2, legend3, legend4 );
 
-        List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata(), legends );
+        List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata( 100, 50 ),
+                                                                                 legends );
         assertEquals( 1, legendPages.size() );
 
         List<LegendImage> childsOnPageOne = legendPages.get( 0 );
         assertEquals( 4, childsOnPageOne.size() );
 
-        LegendImage childThreeOnPageOne = findChildByName( childsOnPageOne, "test3" );
-        assertEquals( 0, childThreeOnPageOne.getX() );
-        assertEquals( 0, childThreeOnPageOne.getY() );
-        assertEquals( 25, childThreeOnPageOne.getWidth() );
-        assertEquals( 50, childThreeOnPageOne.getHeight() );
-
         LegendImage childOneOnPageOne = findChildByName( childsOnPageOne, "test1" );
-        assertEquals( 0 + 25, childOneOnPageOne.getX() );
+        assertEquals( 0, childOneOnPageOne.getX() );
         assertEquals( 0, childOneOnPageOne.getY() );
         assertEquals( 20, childOneOnPageOne.getWidth() );
         assertEquals( 45, childOneOnPageOne.getHeight() );
 
-        LegendImage childFourOnPageOne = findChildByName( childsOnPageOne, "test4" );
-        assertEquals( 0 + 25, childFourOnPageOne.getX() );
-        assertEquals( 0 + 45, childFourOnPageOne.getY() );
-        assertEquals( 13, childFourOnPageOne.getWidth() );
-        assertEquals( 23, childFourOnPageOne.getHeight() );
-
         LegendImage childTwoOnPageOne = findChildByName( childsOnPageOne, "test2" );
-        assertEquals( 0 + 25 + 20, childTwoOnPageOne.getX() );
+        assertEquals( 0 + 30 + SPACING, childTwoOnPageOne.getX() );
         assertEquals( 0, childTwoOnPageOne.getY() );
         assertEquals( 20, childTwoOnPageOne.getWidth() );
         assertEquals( 20, childTwoOnPageOne.getHeight() );
+
+        LegendImage childThreeOnPageOne = findChildByName( childsOnPageOne, "test3" );
+        assertEquals( 0 + 30 + SPACING, childThreeOnPageOne.getX() );
+        assertEquals( 0 + 20, childThreeOnPageOne.getY() );
+        assertEquals( 13, childThreeOnPageOne.getWidth() );
+        assertEquals( 23, childThreeOnPageOne.getHeight() );
+
+        LegendImage childFourOnPageOne = findChildByName( childsOnPageOne, "test4" );
+        assertEquals( 0 + 30 + SPACING + 30 + SPACING, childFourOnPageOne.getX() );
+        assertEquals( 0, childFourOnPageOne.getY() );
+        assertEquals( 25, childFourOnPageOne.getWidth() );
+        assertEquals( 50, childFourOnPageOne.getHeight() );
     }
 
-    public void testLayoutOnMultiplePagesWithMultipleLegendsOneToHeightFittingOnOnePage()
+    public void testSzenario3()
                             throws Exception {
         String[] legend1 = createLegend( "test1", 25, 60 );
         String[] legend2 = createLegend( "test2", 20, 90 );
-        String[] legend3 = createLegend( "test3", 20, 45 );
+        String[] legend3 = createLegend( "test3", 14, 20 );
 
         List<String[]> legends = createLegends( legend1, legend2, legend3 );
 
-        List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata(), legends );
+        List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata( 100, 85 ),
+                                                                                 legends );
         assertEquals( 1, legendPages.size() );
 
         List<LegendImage> childsOnPageOne = legendPages.get( 0 );
         assertEquals( 3, childsOnPageOne.size() );
 
-        LegendImage childTwoOnPageOne = findChildByName( childsOnPageOne, "test2" );
-        assertEquals( 0, childTwoOnPageOne.getX() );
-        assertEquals( 0, childTwoOnPageOne.getY() );
-        assertEquals( 18, childTwoOnPageOne.getWidth() );
-        assertEquals( 83, childTwoOnPageOne.getHeight() );
-
         LegendImage childOneOnPageOne = findChildByName( childsOnPageOne, "test1" );
-        assertEquals( 0 + 18, childOneOnPageOne.getX() );
+        assertEquals( 0, childOneOnPageOne.getX() );
         assertEquals( 0, childOneOnPageOne.getY() );
         assertEquals( 25, childOneOnPageOne.getWidth() );
         assertEquals( 60, childOneOnPageOne.getHeight() );
 
+        LegendImage childTwoOnPageOne = findChildByName( childsOnPageOne, "test2" );
+        assertEquals( 0 + 30 + SPACING, childTwoOnPageOne.getX() );
+        assertEquals( 0, childTwoOnPageOne.getY() );
+        assertEquals( 18, childTwoOnPageOne.getWidth() );
+        assertEquals( 85, childTwoOnPageOne.getHeight() );
+
         LegendImage childThreeOnPageOne = findChildByName( childsOnPageOne, "test3" );
-        assertEquals( 0 + 18 + 25, childThreeOnPageOne.getX() );
+        assertEquals( 0 + 30 + SPACING + 30 + SPACING, childThreeOnPageOne.getX() );
         assertEquals( 0, childThreeOnPageOne.getY() );
-        assertEquals( 20, childThreeOnPageOne.getWidth() );
-        assertEquals( 45, childThreeOnPageOne.getHeight() );
+        assertEquals( 14, childThreeOnPageOne.getWidth() );
+        assertEquals( 20, childThreeOnPageOne.getHeight() );
     }
 
-    public void testLayoutOnMultiplePagesWithMultipleLegendsTooHeightFittingOnThreePages()
+    public void testSzenario4()
                             throws Exception {
-        String[] legend1 = createLegend( "test1", 160, 280 );
-        String[] legend2 = createLegend( "test2", 120, 212 );
+        String[] legend1 = createLegend( "test1", 25, 60 );
+        String[] legend2 = createLegend( "test2", 20, 45 );
+        String[] legend3 = createLegend( "test3", 14, 20 );
+        String[] legend4 = createLegend( "test4", 25, 50 );
+
+        List<String[]> legends = createLegends( legend1, legend2, legend3, legend4 );
+
+        List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata( 100, 60 ),
+                                                                                 legends );
+        assertEquals( 2, legendPages.size() );
+
+        List<LegendImage> childsOnPageOne = legendPages.get( 0 );
+        assertEquals( 3, childsOnPageOne.size() );
+
+        List<LegendImage> childsOnPageTwo = legendPages.get( 1 );
+        assertEquals( 1, childsOnPageTwo.size() );
+
+        LegendImage childOneOnPageOne = findChildByName( childsOnPageOne, "test1" );
+        assertEquals( 0, childOneOnPageOne.getX() );
+        assertEquals( 0, childOneOnPageOne.getY() );
+        assertEquals( 25, childOneOnPageOne.getWidth() );
+        assertEquals( 60, childOneOnPageOne.getHeight() );
+
+        LegendImage childTwoOnPageOne = findChildByName( childsOnPageOne, "test2" );
+        assertEquals( 0 + 30 + SPACING, childTwoOnPageOne.getX() );
+        assertEquals( 0, childTwoOnPageOne.getY() );
+        assertEquals( 20, childTwoOnPageOne.getWidth() );
+        assertEquals( 45, childTwoOnPageOne.getHeight() );
+
+        LegendImage childThreeOnPageOne = findChildByName( childsOnPageOne, "test3" );
+        assertEquals( 0 + 30 + SPACING + 30 + SPACING, childThreeOnPageOne.getX() );
+        assertEquals( 0, childThreeOnPageOne.getY() );
+        assertEquals( 14, childThreeOnPageOne.getWidth() );
+        assertEquals( 20, childThreeOnPageOne.getHeight() );
+
+        LegendImage childOneOnPageTwo = findChildByName( childsOnPageTwo, "test4" );
+        assertEquals( 0, childOneOnPageTwo.getX() );
+        assertEquals( 0, childOneOnPageTwo.getY() );
+        assertEquals( 25, childOneOnPageTwo.getWidth() );
+        assertEquals( 50, childOneOnPageTwo.getHeight() );
+    }
+
+    public void testSzenario5()
+                            throws Exception {
+        String[] legend1 = createLegend( "test1", 25, 60 );
+        String[] legend2 = createLegend( "test2", 20, 45 );
         String[] legend3 = createLegend( "test3", 80, 141 );
 
         List<String[]> legends = createLegends( legend1, legend2, legend3 );
 
-        List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata(), legends );
-        assertEquals( 2, legendPages.size() );
+        List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata( 100, 100 ),
+                                                                                 legends );
+        assertEquals( 1, legendPages.size() );
 
         List<LegendImage> childsOnPageOne = legendPages.get( 0 );
-        assertEquals( 2, childsOnPageOne.size() );
-
-        List<LegendImage> childsOnPageTwo = legendPages.get( 1 );
-        assertEquals( 1, childsOnPageTwo.size() );
-
-        LegendImage childOneOnPageOne = findChildByName( childsOnPageOne, "test1" );
-        assertEquals( 0, childOneOnPageOne.getX() );
-        assertEquals( 0, childOneOnPageOne.getY() );
-        assertEquals( 47, childOneOnPageOne.getWidth() );
-        assertEquals( 83, childOneOnPageOne.getHeight() );
-
-        LegendImage childTwoOnPageOne = findChildByName( childsOnPageOne, "test2" );
-        assertEquals( 0 + 47, childTwoOnPageOne.getX() );
-        assertEquals( 0, childTwoOnPageOne.getY() );
-        assertEquals( 46, childTwoOnPageOne.getWidth() );
-        assertEquals( 83, childTwoOnPageOne.getHeight() );
-
-        LegendImage childOneOnPageTwo = findChildByName( childsOnPageTwo, "test3" );
-        assertEquals( 0, childOneOnPageTwo.getX() );
-        assertEquals( 0, childOneOnPageTwo.getY() );
-        assertEquals( 47, childOneOnPageTwo.getWidth() );
-        assertEquals( 83, childOneOnPageTwo.getHeight() );
-    }
-
-    public void testLayoutOnMultiplePagesWithMultipleLegendsFittingOnTwoPages()
-                            throws Exception {
-        String[] legend1 = createLegend( "test1", 25, 60 );
-        String[] legend2 = createLegend( "test2", 37, 55 );
-        String[] legend3 = createLegend( "test3", 80, 30 );
-
-        List<String[]> legends = createLegends( legend1, legend2, legend3 );
-
-        List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata(), legends );
-        assertEquals( 2, legendPages.size() );
-
-        List<LegendImage> childsOnPageOne = legendPages.get( 0 );
-        assertEquals( 2, childsOnPageOne.size() );
-
-        List<LegendImage> childsOnPageTwo = legendPages.get( 1 );
-        assertEquals( 1, childsOnPageTwo.size() );
+        assertEquals( 3, childsOnPageOne.size() );
 
         LegendImage childOneOnPageOne = findChildByName( childsOnPageOne, "test1" );
         assertEquals( 0, childOneOnPageOne.getX() );
@@ -363,20 +318,68 @@ public class LegendImageWriterTest extends TestCase {
         assertEquals( 60, childOneOnPageOne.getHeight() );
 
         LegendImage childTwoOnPageOne = findChildByName( childsOnPageOne, "test2" );
-        assertEquals( 0 + 25, childTwoOnPageOne.getX() );
+        assertEquals( 0 + 30 + SPACING, childTwoOnPageOne.getX() );
         assertEquals( 0, childTwoOnPageOne.getY() );
-        assertEquals( 37, childTwoOnPageOne.getWidth() );
-        assertEquals( 55, childTwoOnPageOne.getHeight() );
+        assertEquals( 20, childTwoOnPageOne.getWidth() );
+        assertEquals( 45, childTwoOnPageOne.getHeight() );
 
-        LegendImage childOneOnPageTwo = findChildByName( childsOnPageTwo, "test3" );
-        assertEquals( 0, childOneOnPageTwo.getX() );
-        assertEquals( 0, childOneOnPageTwo.getY() );
-        assertEquals( 80, childOneOnPageTwo.getWidth() );
-        assertEquals( 30, childOneOnPageTwo.getHeight() );
+        LegendImage childThreeOnPageOne = findChildByName( childsOnPageOne, "test3" );
+        assertEquals( 0 + 30 + SPACING + 30 + SPACING, childThreeOnPageOne.getX() );
+        assertEquals( 0, childThreeOnPageOne.getY() );
     }
 
-    private LegendMetadata createLegendMetadata() {
-        return new LegendMetadata( true, PAGE_WIDTH, PAGE_HEIGHT, null, SPACING );
+    public void testLegendFitsInColumnFits()
+                            throws Exception {
+        BufferedImage legendImage = createBufferedImage( 20, 20 );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 100 ), legendImage );
+        assertTrue( legendFitsInColumn );
+    }
+
+    public void testLegendFitsInColumnFitsExactHeight()
+                            throws Exception {
+        BufferedImage legendImage = createBufferedImage( 25, 50 );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 50 ), legendImage );
+        assertTrue( legendFitsInColumn );
+    }
+
+    public void testLegendFitsInColumnFitsExactWidth()
+                            throws Exception {
+        BufferedImage legendImage = createBufferedImage( 35, 60 );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 125, 70 ), legendImage );
+        assertTrue( legendFitsInColumn );
+    }
+
+    public void testLegendFitsInColumnFitsScaleHeight()
+                            throws Exception {
+        BufferedImage legendImage = createBufferedImage( 35, 60 );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 150, 56 ), legendImage );
+        assertTrue( legendFitsInColumn );
+    }
+
+    public void testLegendFitsInColumnFitsScaleWidth()
+                            throws Exception {
+        BufferedImage legendImage = createBufferedImage( 35, 60 );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 120, 60 ), legendImage );
+        assertTrue( legendFitsInColumn );
+    }
+
+    public void testLegendFitsInColumnFitsNotInHeight()
+                            throws Exception {
+        BufferedImage legendImage = createBufferedImage( 20, 45 );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 30 ), legendImage );
+        assertFalse( legendFitsInColumn );
+    }
+
+    public void testLegendFitsInColumnFitsNotInWidth()
+                            throws Exception {
+        BufferedImage legendImage = createBufferedImage( 35, 60 );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 100 ), legendImage );
+        assertFalse( legendFitsInColumn );
+    }
+
+    private LegendMetadata createLegendMetadata( int width, int height ) {
+        return new LegendMetadata( true, width, height, null, 3, SPACING, 90,
+                                   "Die Legende des Themas %s ist zu groß für den PDF-Druck und wird nicht angezeigt." );
     }
 
     private List<String[]> createLegends( String[]... legendsToAdd ) {
@@ -388,9 +391,19 @@ public class LegendImageWriterTest extends TestCase {
     }
 
     private String[] createLegend( String name, int childWidth, int childHeight ) {
-        String imgName = "legendImage_" + childWidth + "_" + childHeight + ".png";
-        URL legendUrl = LegendImageWriterTest.class.getResource( imgName );
+        URL legendUrl = loadImage( childWidth, childHeight );
         return new String[] { name, legendUrl.toExternalForm() };
+    }
+
+    private URL loadImage( int childWidth, int childHeight ) {
+        String imgName = "legendImage_" + childWidth + "_" + childHeight + ".png";
+        return LegendImageWriterTest.class.getResource( imgName );
+    }
+
+    private BufferedImage createBufferedImage( int childWidth, int childHeight )
+                            throws IOException {
+        URL image = loadImage( childWidth, childHeight );
+        return ImageIO.read( image );
     }
 
     private LegendImage findChildByName( List<LegendImage> childsOnPageOne, String name ) {

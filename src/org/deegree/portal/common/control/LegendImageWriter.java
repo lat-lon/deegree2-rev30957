@@ -2,16 +2,22 @@ package org.deegree.portal.common.control;
 
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.font.FontRenderContext;
+import java.awt.font.LineBreakMeasurer;
+import java.awt.font.TextAttribute;
+import java.awt.font.TextLayout;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.text.AttributedCharacterIterator;
+import java.text.AttributedString;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -60,7 +66,7 @@ public class LegendImageWriter {
         int height = legendMetadata.getHeight();
         int width = legendMetadata.getWidth();
         BufferedImage bi = new BufferedImage( width, height, BufferedImage.TYPE_INT_ARGB );
-        Graphics g = createGraphics( legendMetadata, bi );
+        Graphics g = createGraphics( legendMetadata.getLegendBgColor(), bi );
         int k = 10;
 
         for ( int i = 0; i < legends.size(); i++ ) {
@@ -105,7 +111,7 @@ public class LegendImageWriter {
             LOG.logInfo( "Draw page " + legendMetadata.getWidth() + "/" + legendMetadata.getHeight() );
             BufferedImage bi = new BufferedImage( legendMetadata.getWidth(), legendMetadata.getHeight(),
                                                   BufferedImage.TYPE_INT_ARGB );
-            Graphics g = createGraphics( legendMetadata, bi );
+            Graphics g = createGraphics( legendMetadata.getLegendBgColor(), bi );
             for ( LegendImage legendImage : legendPage ) {
                 LOG.logInfo( "Draw image " + legendImage.getX() + "/" + legendImage.y );
                 g.drawImage( legendImage.legendImage, legendImage.getX(), legendImage.y, legendImage.width,
@@ -121,104 +127,156 @@ public class LegendImageWriter {
                             throws IOException {
         List<List<LegendImage>> allPageChilds = new ArrayList<List<LegendImage>>();
 
-        int width = legendMetadata.getWidth();
+        int spacing = legendMetadata.getSpacing();
+
         int height = legendMetadata.getHeight();
-
         int startHeight = 0;
-        int availableHeight = height;
-
-        int startWidth = 0;
-        int currentWidth = startWidth;
         int currentHeight = startHeight;
-        int currentColumnWidth = 0;
+
+        int currentColumn = 0;
+        int columns = legendMetadata.getColumns();
+        float columnWidth = calculateColumnWidth( legendMetadata );
 
         List<LegendImage> currentPageLegends = new ArrayList<LegendImage>();
-        for ( LegendImage singleLegendImage : createLegendImagesSortByHeight( legends ) ) {
+        for ( LegendImage singleLegendImage : createLegendImages( legendMetadata, legends ) ) {
             int childWidth = singleLegendImage.getOriginalWidth();
             int childHeight = singleLegendImage.getOriginalHeight();
 
-            if ( doesNotFitInColumn( height, currentHeight, childHeight ) ) {
-                float scaleFactor = calculateScaleFactor( height, childHeight );
-                setNewBounds( singleLegendImage, currentWidth, currentHeight, childWidth, childHeight, scaleFactor );
+            float scaleFactor = calculateScaleFactor( height, childHeight, columnWidth, childWidth );
+            if ( scaleFactor < 1 ) {
+                setNewBounds( singleLegendImage, currentColumn, currentHeight, childWidth, childHeight, columnWidth,
+                              spacing, scaleFactor );
                 childWidth = singleLegendImage.width;
                 childHeight = singleLegendImage.height;
             }
 
-            if ( isFirstInColumnAndDoesNotFitInColumn( height, startHeight, currentHeight, childHeight ) ) {
-                LOG.logInfo( "First in column and does not fit." );
-                currentHeight = startHeight;
-                float scaleFactor = calculateScaleFactor( availableHeight, childHeight );
-                if ( maxPageWidthIsAchieved( width, currentWidth, childWidth * scaleFactor ) ) {
-                    LOG.logInfo( "Open new page." );
-                    currentWidth = startWidth;
-                    allPageChilds.add( currentPageLegends );
-                    currentPageLegends = new ArrayList<LegendImage>();
-                }
-                setNewBounds( singleLegendImage, currentWidth, currentHeight, childWidth, childHeight, scaleFactor );
-                currentWidth += ( childWidth * scaleFactor );
-                currentColumnWidth = 0;
-            } else if ( doesNotFitInColumn( height, currentHeight, childHeight ) ) {
+            if ( doesNotFitInColumn( height, currentHeight, childHeight ) ) {
                 LOG.logInfo( "Does not fit." );
-                currentWidth += currentColumnWidth;
                 currentHeight = startHeight;
-                if ( maxPageWidthIsAchieved( width, currentWidth, childWidth ) ) {
+                currentColumn++;
+                if ( currentColumn >= columns ) {
                     LOG.logInfo( "Open new page." );
-                    currentWidth = startWidth;
+                    LOG.logInfo( "New legend page with " + currentPageLegends.size() + " legends." );
                     allPageChilds.add( currentPageLegends );
                     currentPageLegends = new ArrayList<LegendImage>();
+                    currentColumn = 0;
                 }
-                currentColumnWidth = childWidth;
-                setNewBounds( singleLegendImage, currentWidth, currentHeight, childWidth, childHeight );
+                setNewBounds( singleLegendImage, currentColumn, currentHeight, childWidth, childHeight, columnWidth,
+                              spacing );
             } else {
                 LOG.logInfo( "Fits in current column." );
-                currentColumnWidth = Math.max( currentColumnWidth, childWidth );
-                setNewBounds( singleLegendImage, currentWidth, currentHeight, childWidth, childHeight );
+                setNewBounds( singleLegendImage, currentColumn, currentHeight, childWidth, childHeight, columnWidth,
+                              spacing );
             }
             currentHeight += childHeight;
             currentPageLegends.add( singleLegendImage );
         }
         LOG.logInfo( "New legend page with " + currentPageLegends.size() + " legends." );
         allPageChilds.add( currentPageLegends );
+        LOG.logInfo( "Legends fits on " + allPageChilds.size() + " pages." );
         return allPageChilds;
     }
 
-    private Graphics createGraphics( LegendMetadata legendMetadata, BufferedImage bi ) {
-        String legendBgColor = legendMetadata.getLegendBgColor();
+    private Graphics2D createGraphics( String legendBgColor, BufferedImage bi ) {
         if ( legendBgColor == null ) {
             legendBgColor = "0xFFFFFF";
         }
         Color bg = Color.decode( legendBgColor );
-        Graphics g = bi.getGraphics();
+        Graphics2D g = bi.createGraphics();
         g.setColor( bg );
         g.fillRect( 0, 0, bi.getWidth(), bi.getHeight() );
         g.setColor( Color.BLACK );
         return g;
     }
 
-    private List<LegendImage> createLegendImagesSortByHeight( List<String[]> legends )
+    private List<LegendImage> createLegendImages( LegendMetadata legendMetadata, List<String[]> legends )
                             throws IOException {
         List<LegendImage> legendImages = new ArrayList<LegendImageWriter.LegendImage>();
+        LOG.logInfo( "Legends: " );
         for ( String[] legend : legends ) {
-            LegendImage legendImage = createLegendImageWithExtent( legend );
+            LOG.logInfo( "  " + legend[0] + ": " + legend[1] );
+            LegendImage legendImage = createLegendImageWithExtent( legendMetadata, legend );
             if ( legendImage != null )
                 legendImages.add( legendImage );
         }
-        Collections.sort( legendImages, new Comparator<LegendImage>() {
-            public int compare( LegendImage entry1, LegendImage entry2 ) {
-                return Float.compare( entry2.getOriginalHeight(), entry1.getOriginalHeight() );
-            }
-        } );
         return legendImages;
     }
 
-    private LegendImage createLegendImageWithExtent( String[] legend )
+    private LegendImage createLegendImageWithExtent( LegendMetadata legendMetadata, String[] legend )
                             throws IOException {
-        LOG.logInfo( "Legends: " );
-        LOG.logInfo( "  " + legend[0] + ": " + legend[1] );
         BufferedImage legendImage = createLegendImage( legend );
-        if ( legendImage != null )
+        if ( legendImage != null ) {
+            if ( !legendFitsInColumn( legendMetadata, legendImage ) )
+                legendImage = createLegendImageDoesNotFit( legendMetadata, legend[0] );
             return new LegendImage( legend[0], legendImage );
+        }
         return null;
+    }
+
+    private BufferedImage createLegendImageDoesNotFit( LegendMetadata legendMetadata, String name ) {
+        LOG.logInfo( "Legend image for " + name + " does not fit." );
+        String msg = String.format( legendMetadata.getToLargeMsg(), name );
+        int spacing = legendMetadata.getSpacing();
+
+        int width = (int) calculateColumnWidth( legendMetadata );
+        int height = calculateHeight( msg, width - spacing ) + 2 * spacing;
+        BufferedImage bi = new BufferedImage( width, height, BufferedImage.TYPE_INT_ARGB );
+        Graphics2D g = createGraphics( legendMetadata.getLegendBgColor(), bi );
+
+        AttributedString attributedString = createAttributedString( msg );
+
+        AttributedCharacterIterator paragraph = attributedString.getIterator();
+        int paragraphStart = paragraph.getBeginIndex();
+        int paragraphEnd = paragraph.getEndIndex();
+        FontRenderContext frc = g.getFontRenderContext();
+        LineBreakMeasurer lineMeasurer = new LineBreakMeasurer( paragraph, frc );
+
+        float breakWidth = width - spacing;
+        float drawPosY = spacing;
+        lineMeasurer.setPosition( paragraphStart );
+
+        while ( lineMeasurer.getPosition() < paragraphEnd ) {
+            TextLayout layout = lineMeasurer.nextLayout( breakWidth );
+            float drawPosX = layout.isLeftToRight() ? 0 : breakWidth - layout.getAdvance();
+            drawPosY += layout.getAscent();
+            layout.draw( g, drawPosX, drawPosY );
+            drawPosY += layout.getDescent() + layout.getLeading();
+        }
+        g.dispose();
+        return bi;
+    }
+
+    private int calculateHeight( String msg, int width ) {
+        BufferedImage bi = new BufferedImage( width, 100, BufferedImage.TYPE_INT_ARGB );
+        Graphics2D g = bi.createGraphics();
+        AttributedString attributedString = createAttributedString( msg );
+
+        AttributedCharacterIterator paragraph = attributedString.getIterator();
+        int paragraphStart = paragraph.getBeginIndex();
+        int paragraphEnd = paragraph.getEndIndex();
+        FontRenderContext frc = g.getFontRenderContext();
+        LineBreakMeasurer lineMeasurer = new LineBreakMeasurer( paragraph, frc );
+
+        float breakWidth = width;
+        float drawPosY = 0;
+        lineMeasurer.setPosition( paragraphStart );
+
+        while ( lineMeasurer.getPosition() < paragraphEnd ) {
+            TextLayout layout = lineMeasurer.nextLayout( breakWidth );
+            float drawPosX = layout.isLeftToRight() ? 0 : breakWidth - layout.getAdvance();
+            drawPosY += layout.getAscent();
+            layout.draw( g, drawPosX, drawPosY );
+            drawPosY += layout.getDescent() + layout.getLeading();
+        }
+        return (int) drawPosY;
+    }
+
+    private AttributedString createAttributedString( String msg ) {
+        Hashtable<TextAttribute, Object> map = new Hashtable<TextAttribute, Object>();
+        map.put( TextAttribute.FAMILY, "Serif" );
+        map.put( TextAttribute.SIZE, new Float( 12.0 ) );
+        AttributedString attributedString = new AttributedString( msg, map );
+        return attributedString;
     }
 
     private BufferedImage createLegendImage( String[] s )
@@ -237,8 +295,25 @@ public class LegendImageWriter {
         return null;
     }
 
-    private void setNewBounds( LegendImage child, int currentWidth, int currentHeight, int childWidth, int childHeight,
-                               float scale ) {
+    boolean legendFitsInColumn( LegendMetadata legendMetadata, BufferedImage legendImage ) {
+        int maxSizeToFitInPercent = legendMetadata.getMaxSizeToFitInPercent();
+
+        double requiredWidthScaleInPercent = calculateColumnWidth( legendMetadata ) / legendImage.getWidth() * 100;
+        if ( requiredWidthScaleInPercent < maxSizeToFitInPercent )
+            return false;
+
+        int height = legendMetadata.getHeight();
+        double requiredHeightScaleInPercent = (double) height / legendImage.getHeight() * 100;
+        if ( requiredHeightScaleInPercent < maxSizeToFitInPercent )
+            return false;
+
+        return true;
+    }
+
+    private void setNewBounds( LegendImage child, int currentColumn, int currentHeight, int childWidth,
+                               int childHeight, float columnWidth, int spacing, float scale ) {
+        double columnWidthWithSpacing = columnWidth + spacing;
+        int currentWidth = (int) ( currentColumn * columnWidthWithSpacing );
         int llx = currentWidth;
         int urx = currentWidth + ( (Float) ( childWidth * scale ) ).intValue();
         int lly = currentHeight;
@@ -249,35 +324,32 @@ public class LegendImageWriter {
         child.height = ury - lly;
     }
 
-    private void setNewBounds( LegendImage child, int currentWidth, int currentHeight, int childWidth, int childHeight ) {
-        int llx = currentWidth;
-        int urx = currentWidth + childWidth;
-        int lly = currentHeight;
-        int ury = currentHeight + childHeight;
-        child.x = llx;
-        child.y = lly;
-        child.width = urx - llx;
-        child.height = ury - lly;
-    }
-
-    private boolean isFirstInColumnAndDoesNotFitInColumn( int totalHeight, int startHeight, int currentHeight,
-                                                          int childHeight ) {
-        return currentHeight == startHeight && doesNotFitInColumn( totalHeight, currentHeight, childHeight );
+    private void setNewBounds( LegendImage child, int currentColumn, int currentHeight, int childWidth,
+                               int childHeight, float columnWidth, int spacing ) {
+        setNewBounds( child, currentColumn, currentHeight, childWidth, childHeight, columnWidth, spacing, 1 );
     }
 
     private boolean doesNotFitInColumn( int totalHeight, int currentHeight, int childHeight ) {
         return totalHeight < childHeight + currentHeight;
     }
 
-    private boolean maxPageWidthIsAchieved( float width, float currentWidth, float childWidth ) {
-        return currentWidth + childWidth > width;
+    private float calculateScaleFactor( float height, float childHeight, float width, float childWidth ) {
+        float scaleFactorInHeight = height / childHeight;
+        float scaleFactorInWidth = width / childWidth;
+
+        float scaleFactor = Math.min( scaleFactorInHeight, scaleFactorInWidth );
+        if ( scaleFactor > 1 )
+            scaleFactor = 1;
+        return scaleFactor;
     }
 
-    private float calculateScaleFactor( float currentHeight, float childHeight ) {
-        float scaleInPercent = currentHeight / childHeight;
-        if ( scaleInPercent > 1 )
-            scaleInPercent = 1;
-        return scaleInPercent;
+    private float calculateColumnWidth( LegendMetadata legendMetadata ) {
+        int width = legendMetadata.getWidth();
+        int spacing = legendMetadata.getSpacing();
+        int columns = legendMetadata.getColumns();
+        int noOfSpaces = columns - 1;
+        float widthWithoutSpacing = width - ( noOfSpaces * spacing );
+        return widthWithoutSpacing / columns;
     }
 
     /**
