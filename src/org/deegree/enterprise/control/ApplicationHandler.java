@@ -258,7 +258,7 @@ public class ApplicationHandler implements WebListener {
          * Read resource into Document...
          */
         URL url = new File( configFile ).toURL();
-        Reader reader = new InputStreamReader( url.openStream() );
+        Reader reader = new InputStreamReader( url.openStream(), "UTF-8" );
         Document doc = XMLTools.parse( reader );
         /*
          * Read and create page elements
