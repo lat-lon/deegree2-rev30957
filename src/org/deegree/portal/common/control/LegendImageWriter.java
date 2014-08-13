@@ -249,7 +249,6 @@ public class LegendImageWriter {
     private int calculateHeight( String msg, int width ) {
         BufferedImage bi = new BufferedImage( width, 100, BufferedImage.TYPE_INT_ARGB );
         Graphics2D g = bi.createGraphics();
-
         AttributedString attributedString = createAttributedString( msg );
 
         AttributedCharacterIterator paragraph = attributedString.getIterator();

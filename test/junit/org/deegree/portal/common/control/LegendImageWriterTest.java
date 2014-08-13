@@ -378,7 +378,8 @@ public class LegendImageWriterTest extends TestCase {
     }
 
     private LegendMetadata createLegendMetadata( int width, int height ) {
-        return new LegendMetadata( true, width, height, null, 3, SPACING );
+        return new LegendMetadata( true, width, height, null, 3, SPACING, 90,
+                                   "Die Legende des Themas %s ist zu groß für den PDF-Druck und wird nicht angezeigt." );
     }
 
     private List<String[]> createLegends( String[]... legendsToAdd ) {

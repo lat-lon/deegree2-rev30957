@@ -45,9 +45,9 @@ package org.deegree.portal.common.control;
  */
 public class LegendMetadata {
 
-    private final int maxSizeToFitInPercent = 90;
+    private final int maxSizeToFitInPercent;
 
-    private final String toLargeMsg = "Die Legende des Themas %s ist zu groß für den PDF-Druck und wird nicht angezeigt.";
+    private final String toLargeMsg;
 
     private final boolean isDynamicLegend;
 
@@ -62,13 +62,15 @@ public class LegendMetadata {
     private final int spacing;
 
     public LegendMetadata( boolean isDynamicLegend, int legendWidth, int legendHeight, String legendBgColor,
-                           int columns, int spacing ) {
+                           int columns, int spacing, int maxSizeToFitInPercent, String toLargeMsg ) {
         this.isDynamicLegend = isDynamicLegend;
         this.legendWidth = legendWidth;
         this.legendHeight = legendHeight;
         this.legendBgColor = legendBgColor;
         this.columns = columns;
         this.spacing = spacing;
+        this.maxSizeToFitInPercent = maxSizeToFitInPercent;
+        this.toLargeMsg = toLargeMsg;
 
     }
 

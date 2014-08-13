@@ -757,25 +757,41 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         int spacing = parseSpacing( 10 );
         String xpath = "jasper:detail/jasper:band/jasper:image/jasper:reportElement[./@key = 'legendTemplateBand']";
         Element element = (Element) XMLTools.getNode( xml.getRootElement(), xpath, nsc );
+        int maxScaleInPercent = parseAsInt( "MAXSCALETOFITINPERCENT", -1 );
+        String initParameterLegendToLargeMsg = getInitParameter( "LEGENDTOLARGEMSG" );
+        String legendToLargeMsg = initParameterLegendToLargeMsg != null ? initParameterLegendToLargeMsg
+                                                                       : "Legend %sis too large.";
         if ( element != null ) {
             int width = XMLTools.getNodeAsInt( element, "@width", nsc, Integer.MIN_VALUE );
             int height = XMLTools.getNodeAsInt( element, "@height", nsc, Integer.MIN_VALUE );
             int numberOfColumns = calculateNoOfColumns( width, height );
             if ( width != Integer.MIN_VALUE && height != Integer.MIN_VALUE ) {
                 LOG.logDebug( "Found legend on multiple pages, each page with width " + width + " and height " + height );
-                return new LegendMetadata( true, width, height, legendBgColor, numberOfColumns, spacing );
+                return new LegendMetadata( true, width, height, legendBgColor, numberOfColumns, spacing,
+                                           maxScaleInPercent, legendToLargeMsg );
             }
         }
         int width = Integer.parseInt( getInitParameter( "LEGENDWIDTH" ) );
         int height = Integer.parseInt( getInitParameter( "LEGENDHEIGHT" ) );
         LOG.logDebug( "Default legend." );
-        return new LegendMetadata( false, width, height, legendBgColor, 1, spacing );
+        return new LegendMetadata( false, width, height, legendBgColor, 1, spacing, maxScaleInPercent, legendToLargeMsg );
+    }
+
+    private int parseAsInt( String paramName, int defaultValue ) {
+        String initParameter = getInitParameter( paramName );
+        if ( initParameter != null )
+            try {
+                return Integer.parseInt( initParameter );
+            } catch ( NumberFormatException e ) {
+                LOG.logWarning( "Value of parameter " + paramName + " is not a valid integer!" );
+            }
+        return defaultValue;
     }
 
     private int calculateNoOfColumns( int width, int height ) {
         if ( width > height )
-            return 4;
-        return 2;
+            return parseAsInt( "NUMBEROFCOLUMNS_LANDSCAPE", 4 );
+        return parseAsInt( "NUMBEROFCOLUMNS_PORTAIT", 4 );
     }
 
     private int parseSpacing( int defaultSpacing ) {
