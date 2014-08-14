@@ -207,10 +207,16 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         Pair<Integer, Integer> size = getMapTemplateSize( pathx );
         Pair<Integer, Integer> scaleBarBize = getScaleBarSize( pathx );
 
-        List<String> getMap = createGetMapRequests( vc, rpc, size );
+        Integer dpi = calculateDpi( struct );
+        int width = calculateWidth( size, dpi );
+        int height = calculateHeight( size, dpi );
+        Envelope bbox = calculateBbox( vc, struct, size, width, height );
+
+        List<String> getMap = createGetMapRequests( vc, rpc, bbox, width, height );
         String image = performGetMapRequests( getMap );
 
-        List<String[]> legendURLs = createLegendURLs( vc );
+        double scaleForLegend = calculateScale( bbox, width, height );
+        List<String[]> legendURLs = createLegendURLs( vc, scaleForLegend );
         LegendMetadata legendMetadata = parseLegendMetadata( pathx, vc );
         Map<String, String> parameterName2Legends = accessLegend( legendMetadata, legendURLs );
 
@@ -522,34 +528,9 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * @param vc
      * @return returns a list with all base requests
      */
-    private List<String> createGetMapRequests( ViewContext vc, RPCWebEvent rpc, Pair<Integer, Integer> size ) {
-
-        RPCStruct struct = (RPCStruct) rpc.getRPCMethodCall().getParameters()[1].getValue();
-        Integer dpi = null;
-        if ( struct.getMember( "DPI" ) != null ) {
-            dpi = Integer.parseInt( struct.getMember( "DPI" ).getValue().toString() );
-        }
-        LOG.logInfo( "dpi: ", dpi );
-
+    private List<String> createGetMapRequests( ViewContext vc, RPCWebEvent rpc, Envelope bbox, int width, int height ) {
         User user = getUser();
         String vsp = getVendorspecificParameters( rpc );
-
-        // set boundingbox/envelope
-        Point[] points = vc.getGeneral().getBoundingBox();
-        Envelope bbox = GeometryFactory.createEnvelope( points[0].getPosition(), points[1].getPosition(),
-                                                        points[0].getCoordinateSystem() );
-
-        int width = Integer.parseInt( getInitParameter( "WIDTH" ) );
-        int height = Integer.parseInt( getInitParameter( "HEIGHT" ) );
-        if ( dpi != null ) {
-            width = (int) Math.round( size.first * ( dpi / 72d ) );
-            height = (int) Math.round( size.second * ( dpi / 72d ) );
-        }
-
-        bbox = MapUtils.ensureAspectRatio( bbox, width, height );
-        double ms = ( size.first / 72d ) * 0.0254;
-        double currentScale = bbox.getWidth() / ms;
-        bbox = zoomToScale( bbox, currentScale, struct.getMember( "SCALE" ) );
 
         StringBuffer sb = new StringBuffer( 1000 );
         sb.append( "&BBOX=" ).append( bbox.getMin().getX() ).append( ',' );
@@ -633,17 +614,19 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * a LegendURL
      * 
      * @param vc
+     * @param scale
      * @return legend access URLs for all visible layers of the passed view context. If a visible layer does not define
      *         a LegendURL
      */
-    private List<String[]> createLegendURLs( ViewContext vc ) {
+    private List<String[]> createLegendURLs( ViewContext vc, double scale ) {
         Layer[] layers = vc.getLayerList().getLayers();
         List<String[]> list = new ArrayList<String[]>();
         for ( int i = 0; i < layers.length; i++ ) {
-            if ( !layers[i].isHidden() ) {
-                Style style = layers[i].getStyleList().getCurrentStyle();
+            Layer layer = layers[i];
+            if ( !layer.isHidden() && layerIsInScale( scale, layer ) ) {
+                Style style = layer.getStyleList().getCurrentStyle();
                 String[] s = new String[2];
-                s[0] = layers[i].getTitle();
+                s[0] = layer.getTitle();
                 if ( style.getLegendURL() != null ) {
                     s[1] = style.getLegendURL().getOnlineResource().toExternalForm();
                 }
@@ -651,6 +634,16 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             }
         }
         return list;
+    }
+
+    private boolean layerIsInScale( double scale, Layer layer ) {
+        System.out.println( scale );
+        System.out.println( layer.getExtension().getMinScaleHint() );
+        System.out.println( layer.getExtension().getMaxScaleHint() );
+        if ( scale < layer.getExtension().getMinScaleHint() || scale > layer.getExtension().getMaxScaleHint() ) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -786,6 +779,49 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                 LOG.logWarning( "Value of parameter " + paramName + " is not a valid integer!" );
             }
         return defaultValue;
+    }
+
+    private int calculateHeight( Pair<Integer, Integer> size, Integer dpi ) {
+        int height = Integer.parseInt( getInitParameter( "HEIGHT" ) );
+        if ( dpi != null ) {
+            height = (int) Math.round( size.second * ( dpi / 72d ) );
+        }
+        return height;
+    }
+
+    private int calculateWidth( Pair<Integer, Integer> size, Integer dpi ) {
+        int width = Integer.parseInt( getInitParameter( "WIDTH" ) );
+        if ( dpi != null ) {
+            width = (int) Math.round( size.first * ( dpi / 72d ) );
+        }
+        return width;
+    }
+
+    private Envelope calculateBbox( ViewContext vc, RPCStruct struct, Pair<Integer, Integer> size, int width, int height ) {
+        // set boundingbox/envelope
+        Point[] points = vc.getGeneral().getBoundingBox();
+        Envelope bbox = GeometryFactory.createEnvelope( points[0].getPosition(), points[1].getPosition(),
+                                                        points[0].getCoordinateSystem() );
+        bbox = MapUtils.ensureAspectRatio( bbox, width, height );
+        double ms = ( size.first / 72d ) * 0.0254;
+        double currentScale = bbox.getWidth() / ms;
+        bbox = zoomToScale( bbox, currentScale, struct.getMember( "SCALE" ) );
+        return bbox;
+    }
+
+    private Integer calculateDpi( RPCStruct struct ) {
+        Integer dpi = null;
+        if ( struct.getMember( "DPI" ) != null ) {
+            dpi = Integer.parseInt( struct.getMember( "DPI" ).getValue().toString() );
+        }
+        LOG.logInfo( "dpi: ", dpi );
+        return dpi;
+    }
+
+    private double calculateScale( Envelope bbox, int width, int height ) {
+        double dx = bbox.getWidth() / width;
+        double dy = bbox.getHeight() / height;
+        return Math.sqrt( dx * dx + dy * dy );
     }
 
     private int calculateNoOfColumns( int width, int height ) {
