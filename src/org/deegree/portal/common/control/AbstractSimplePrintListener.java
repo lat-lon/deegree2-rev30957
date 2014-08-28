@@ -35,7 +35,8 @@
  ----------------------------------------------------------------------------*/
 package org.deegree.portal.common.control;
 
-import java.awt.Color;
+import static org.deegree.portal.common.control.LegendImageWriter.storeImage;
+
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -44,9 +45,9 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.text.SimpleDateFormat;
@@ -56,10 +57,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import net.sf.jasperreports.engine.JRDataSource;
 import net.sf.jasperreports.engine.JREmptyDataSource;
@@ -104,6 +107,8 @@ import org.deegree.portal.context.MapModelVisitor;
 import org.deegree.portal.context.Style;
 import org.deegree.portal.context.ViewContext;
 import org.deegree.security.drm.model.User;
+import org.w3c.dom.CDATASection;
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
@@ -199,15 +204,21 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         ServletContext sc = ( (HttpServletRequest) getRequest() ).getSession( true ).getServletContext();
         String pathx = sc.getRealPath( templateDir ) + '/' + printTemplate + ".jrxml";
 
-        JasperReport jreport = getReport( pathx, vc );
-
         Pair<Integer, Integer> size = getMapTemplateSize( pathx );
         Pair<Integer, Integer> scaleBarBize = getScaleBarSize( pathx );
 
-        List<String> getMap = createGetMapRequests( vc, rpc, size );
+        Integer dpi = calculateDpi( struct );
+        int width = calculateWidth( size, dpi );
+        int height = calculateHeight( size, dpi );
+        Envelope bbox = calculateBbox( vc, struct, size, width, height );
+
+        List<String> getMap = createGetMapRequests( vc, rpc, bbox, width, height );
         String image = performGetMapRequests( getMap );
 
-        String legend = accessLegend( createLegendURLs( vc ) );
+        double scaleForLegend = calculateScale( bbox, width, height );
+        List<String[]> legendURLs = createLegendURLs( vc, scaleForLegend );
+        LegendMetadata legendMetadata = parseLegendMetadata( pathx, vc );
+        Map<String, String> parameterName2Legends = accessLegend( legendMetadata, legendURLs );
 
         BufferedImage scaleBar = null;
         if ( scaleBarBize.first > 0 ) {
@@ -222,7 +233,9 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
 
         Map<String, Object> parameter = new HashMap<String, Object>();
         parameter.put( "MAP", image );
-        parameter.put( "LEGEND", legend );
+        for ( Entry<String, String> parameterName2Legend : parameterName2Legends.entrySet() ) {
+            parameter.put( parameterName2Legend.getKey(), parameterName2Legend.getValue() );
+        }
         parameter.put( "SCALEBAR", scaleBar );
 
         // enable
@@ -256,6 +269,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             }
         }
 
+        XMLFragment xmlReport = manipulateJrxml( pathx, vc, parameterName2Legends );
+        JasperReport jreport = getReport( xmlReport );
         if ( "application/pdf".equals( format ) ) {
             // create the pdf
             Object result = null;
@@ -266,10 +281,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                 LOG.logError( e.getLocalizedMessage(), e );
                 throw new PortalException( Messages.getString( "AbstractSimplePrintListener.REPORTCREATION" ) );
             } finally {
-                File file = new File( image );
-                file.delete();
-                file = new File( legend );
-                file.delete();
+                removeTmpFiles( image, parameterName2Legends );
             }
             forwardPDF( result );
         } else if ( "image/png".equals( format ) ) {
@@ -283,12 +295,18 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                 LOG.logError( e.getLocalizedMessage(), e );
                 throw new PortalException( Messages.getString( "AbstractSimplePrintListener.REPORTCREATION" ) );
             } finally {
-                File file = new File( image );
-                file.delete();
-                file = new File( legend );
-                file.delete();
+                removeTmpFiles( image, parameterName2Legends );
             }
             forwardImage( result, format );
+        }
+    }
+
+    private void removeTmpFiles( String image, Map<String, String> legends ) {
+        File file = new File( image );
+        file.delete();
+        for ( Entry<String, String> legend : legends.entrySet() ) {
+            file = new File( legend.getValue() );
+            file.delete();
         }
     }
 
@@ -313,7 +331,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
     private Pair<Integer, Integer> getScaleBarSize( String path )
                             throws Exception {
         File file = new File( path );
-        XMLFragment xml = new XMLFragment( file.toURL() );
+        XMLFragment xml = new XMLFragment( file.toURI().toURL() );
 
         String xpathW = "detail/band/image/reportElement[./@key = 'scaleBar']/@width";
         String xpathH = "detail/band/image/reportElement[./@key = 'scaleBar']/@height";
@@ -352,69 +370,21 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * accesses the legend URLs passed, draws the result onto an image that are stored in a temporary file. The name of
      * the file will be returned.
      * 
+     * @param legendMetadata
+     * 
      * @param legends
      * @return filename of image file
      */
-    private String accessLegend( List<String[]> legends )
+    private Map<String, String> accessLegend( LegendMetadata legendMetadata, List<String[]> legends )
                             throws IOException {
-        int width = Integer.parseInt( getInitParameter( "LEGENDWIDTH" ) );
-        int height = Integer.parseInt( getInitParameter( "LEGENDHEIGHT" ) );
-        String tmp = getInitParameter( "LEGENDBGCOLOR" );
-        if ( tmp == null ) {
-            tmp = "0xFFFFFF";
-        }
-        Color bg = Color.decode( tmp );
-        BufferedImage bi = new BufferedImage( width, height, BufferedImage.TYPE_INT_ARGB );
-        Graphics g = bi.getGraphics();
-        g.setColor( bg );
-        g.fillRect( 0, 0, bi.getWidth(), bi.getHeight() );
-        g.setColor( Color.BLACK );
-        int k = 10;
+        String missingImageUrl = null;
+        if ( getInitParameter( "MISSING_IMAGE" ) != null )
+            missingImageUrl = getHomePath() + getInitParameter( "MISSING_IMAGE" );
+        String tempDir = getInitParameter( "TEMPDIR" );
+        LegendImageWriter legendImageWriter = new LegendImageWriter( missingImageUrl, tempDir );
 
-        for ( int i = 0; i < legends.size(); i++ ) {
-            if ( k > bi.getHeight() ) {
-                if ( LOG.getLevel() <= ILogger.LOG_WARNING ) {
-                    LOG.logWarning( "The necessary legend size is larger than the available legend space." );
-                }
-            }
-            String[] s = legends.get( i );
-            if ( s[1] != null ) {
-                LOG.logDebug( "reading legend: " + s[1] );
-                Image img = null;
-                try {
-                    img = ImageUtils.loadImage( new URL( s[1] ) );
-                } catch ( Exception e ) {
-                    if ( LOG.getLevel() == ILogger.LOG_DEBUG ) {
-                        String msg = StringTools.concat( 400, "Exception for Layer: ", s[0], " - ", s[1] );
-                        LOG.logDebug( msg );
-                        LOG.logDebug( e.getLocalizedMessage() );
-                    }
-                    if ( getInitParameter( "MISSING_IMAGE" ) != null ) {
-                        String missingImageUrl = getHomePath() + getInitParameter( "MISSING_IMAGE" );
-                        File missingImage = new File( missingImageUrl );
-                        if ( missingImage.exists() ) {
-                            img = ImageUtils.loadImage( missingImage );
-                        }
-                    }
-                }
-                if ( img != null ) {
-                    if ( img.getWidth( null ) < 50 ) {
-                        // it is assumed that no label is assigned
-                        g.drawImage( img, 0, k, null );
-                        g.drawString( s[0], img.getWidth( null ) + 10, k + img.getHeight( null ) / 2 );
-                    } else {
-                        g.drawImage( img, 0, k, null );
-                    }
-                    k = k + img.getHeight( null ) + 10;
-                }
-            } else {
-                g.drawString( "- " + s[0], 0, k + 10 );
-                k = k + 20;
-            }
-        }
-        g.dispose();
-
-        return storeImage( bi );
+        ServletContext sc = ( (HttpServletRequest) this.getRequest() ).getSession( true ).getServletContext();
+        return legendImageWriter.accessLegend( sc, legendMetadata, legends );
     }
 
     /**
@@ -456,7 +426,10 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             g.drawImage( img, 0, 0, null );
         }
         g.dispose();
-        return storeImage( bi );
+
+        String tempDir = getInitParameter( "TEMPDIR" );
+        ServletContext sc = ( (HttpServletRequest) this.getRequest() ).getSession( true ).getServletContext();
+        return storeImage( sc, tempDir, bi );
     }
 
     /**
@@ -483,35 +456,6 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         MapUtils.drawScalbar( (Graphics2D) img.getGraphics(), img.getWidth(), bbox, new Dimension( w, h ), null,
                               fontSize );
         return img;
-    }
-
-    /**
-     * stores the passed image in the defined temporary directory and returns the dynamicly created filename
-     * 
-     * @param bi
-     * @return filename of image file
-     * @throws IOException
-     */
-    private String storeImage( BufferedImage bi )
-                            throws IOException {
-
-        String s = UUID.randomUUID().toString();
-        String tempDir = getInitParameter( "TEMPDIR" );
-        if ( !tempDir.endsWith( "/" ) ) {
-            tempDir = tempDir + '/';
-        }
-        if ( tempDir.startsWith( "/" ) ) {
-            tempDir = tempDir.substring( 1, tempDir.length() );
-        }
-        ServletContext sc = ( (HttpServletRequest) this.getRequest() ).getSession( true ).getServletContext();
-        String fileName = StringTools.concat( 300, sc.getRealPath( tempDir ), '/', s, ".png" );
-
-        FileOutputStream fos = new FileOutputStream( new File( fileName ) );
-
-        ImageUtils.saveImage( bi, fos, "png", 1 );
-        fos.close();
-
-        return fileName;
     }
 
     private void forwardPDF( Object result )
@@ -584,34 +528,9 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * @param vc
      * @return returns a list with all base requests
      */
-    private List<String> createGetMapRequests( ViewContext vc, RPCWebEvent rpc, Pair<Integer, Integer> size ) {
-
-        RPCStruct struct = (RPCStruct) rpc.getRPCMethodCall().getParameters()[1].getValue();
-        Integer dpi = null;
-        if ( struct.getMember( "DPI" ) != null ) {
-            dpi = Integer.parseInt( struct.getMember( "DPI" ).getValue().toString() );
-        }
-        LOG.logInfo( "dpi: ", dpi );
-
+    private List<String> createGetMapRequests( ViewContext vc, RPCWebEvent rpc, Envelope bbox, int width, int height ) {
         User user = getUser();
         String vsp = getVendorspecificParameters( rpc );
-
-        // set boundingbox/envelope
-        Point[] points = vc.getGeneral().getBoundingBox();
-        Envelope bbox = GeometryFactory.createEnvelope( points[0].getPosition(), points[1].getPosition(),
-                                                        points[0].getCoordinateSystem() );
-
-        int width = Integer.parseInt( getInitParameter( "WIDTH" ) );
-        int height = Integer.parseInt( getInitParameter( "HEIGHT" ) );
-        if ( dpi != null ) {
-            width = (int) Math.round( size.first * ( dpi / 72d ) );
-            height = (int) Math.round( size.second * ( dpi / 72d ) );
-        }
-
-        bbox = MapUtils.ensureAspectRatio( bbox, width, height );
-        double ms = ( size.first / 72d ) * 0.0254;
-        double currentScale = bbox.getWidth() / ms;
-        bbox = zoomToScale( bbox, currentScale, struct.getMember( "SCALE" ) );
 
         StringBuffer sb = new StringBuffer( 1000 );
         sb.append( "&BBOX=" ).append( bbox.getMin().getX() ).append( ',' );
@@ -670,7 +589,6 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * @return <code>null</code>
      */
     protected String getVendorspecificParameters( RPCWebEvent rpc ) {
-        // TODO Auto-generated method stub
         return null;
     }
 
@@ -696,17 +614,19 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * a LegendURL
      * 
      * @param vc
+     * @param scale
      * @return legend access URLs for all visible layers of the passed view context. If a visible layer does not define
      *         a LegendURL
      */
-    private List<String[]> createLegendURLs( ViewContext vc ) {
+    private List<String[]> createLegendURLs( ViewContext vc, double scale ) {
         Layer[] layers = vc.getLayerList().getLayers();
         List<String[]> list = new ArrayList<String[]>();
         for ( int i = 0; i < layers.length; i++ ) {
-            if ( !layers[i].isHidden() ) {
-                Style style = layers[i].getStyleList().getCurrentStyle();
+            Layer layer = layers[i];
+            if ( !layer.isHidden() && layerIsInScale( scale, layer ) ) {
+                Style style = layer.getStyleList().getCurrentStyle();
                 String[] s = new String[2];
-                s[0] = layers[i].getTitle();
+                s[0] = layer.getTitle();
                 if ( style.getLegendURL() != null ) {
                     s[1] = style.getLegendURL().getOnlineResource().toExternalForm();
                 }
@@ -714,6 +634,16 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             }
         }
         return list;
+    }
+
+    private boolean layerIsInScale( double scale, Layer layer ) {
+        System.out.println( scale );
+        System.out.println( layer.getExtension().getMinScaleHint() );
+        System.out.println( layer.getExtension().getMaxScaleHint() );
+        if ( scale < layer.getExtension().getMinScaleHint() || scale > layer.getExtension().getMaxScaleHint() ) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -734,19 +664,23 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         }
     }
 
-    /**
-     * 
-     * @param path
-     * @param vc
-     * @return Jasper template
-     * @throws Exception
-     */
-    protected JasperReport getReport( String path, ViewContext vc )
+    protected JasperReport getReport( XMLFragment xml )
                             throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream( 50000 );
+        xml.write( bos, null );
+        ByteArrayInputStream bis = new ByteArrayInputStream( bos.toByteArray() );
+        JasperDesign jasperDesign = net.sf.jasperreports.engine.xml.JRXmlLoader.load( bis );
+        bis.close();
+        bos.close();
+        return net.sf.jasperreports.engine.JasperCompileManager.compileReport( jasperDesign );
+    }
+
+    private XMLFragment manipulateJrxml( String path, ViewContext vc, Map<String, String> parameterName2Legends )
+                            throws MalformedURLException, IOException, SAXException, XMLParsingException, Exception {
         File file = new File( path );
         XMLFragment xml = new XMLFragment( file );
 
-        // manipulate Jasper template DOM tree to add a list of all visible 
+        // manipulate Jasper template DOM tree to add a list of all visible
         // layers and their parents
         String xpath = "jasper:detail/jasper:band/jasper:frame/jasper:reportElement[./@key = 'layerList']";
         Element element = (Element) XMLTools.getNode( xml.getRootElement(), xpath, nsc );
@@ -757,29 +691,157 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             // remove child node because they are just place holders
             for ( Element e : textFields ) {
                 element.removeChild( e );
-            }            
-            MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
-            // add visible layers and their parents 
-            String s = getInitParameter( "SPACING" );
-            if ( s == null ) {
-                s = "15";
             }
-            mapModel.walkLayerTree( new Visitor( element, textFields.get( 0 ), textFields.get( 1 ), Integer.parseInt( s ) ) );
-        }
+            MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
+            // add visible layers and their parents
 
-        ByteArrayOutputStream bos = new ByteArrayOutputStream( 50000 );
-        xml.write( bos, null );
-        ByteArrayInputStream bis = new ByteArrayInputStream( bos.toByteArray() );
-        JasperDesign jasperDesign = net.sf.jasperreports.engine.xml.JRXmlLoader.load( bis );
-        bis.close();
-        bos.close();
-        return net.sf.jasperreports.engine.JasperCompileManager.compileReport( jasperDesign );
+            int spacing = parseSpacing( 15 );
+            mapModel.walkLayerTree( new Visitor( element, textFields.get( 0 ), textFields.get( 1 ), spacing ) );
+        }
+        if ( !parameterName2Legends.isEmpty() ) {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setValidating( true );
+            factory.setExpandEntityReferences( false );
+
+            String xpathToParameter = "/jasper:jasperReport/jasper:parameter[./@name = 'LEGEND']";
+            Element templateParamElement = (Element) XMLTools.getNode( xml.getRootElement(), xpathToParameter, nsc );
+            Node paramParentNode = templateParamElement.getParentNode();
+
+            String xpathToLegendBand = "/jasper:jasperReport/jasper:detail/jasper:band[jasper:image/jasper:reportElement/@key = 'legendTemplateBand']";
+            Element templateLegendBandElement = (Element) XMLTools.getNode( xml.getRootElement(), xpathToLegendBand,
+                                                                            nsc );
+            Node legendBandParentNode = templateLegendBandElement.getParentNode();
+
+            for ( String legendParameterName : parameterName2Legends.keySet() ) {
+                manipulateParameter( templateParamElement, paramParentNode, legendParameterName );
+                manipulateBand( templateLegendBandElement, legendBandParentNode, legendParameterName );
+            }
+            paramParentNode.removeChild( templateParamElement );
+            legendBandParentNode.removeChild( templateLegendBandElement );
+        }
+        return xml;
+    }
+
+    private void manipulateBand( Element templateLegendBandElement, Node legendBandParentNode,
+                                 String legendParameterName )
+                            throws XMLParsingException {
+        Element clonedLegendBandElement = (Element) templateLegendBandElement.cloneNode( true );
+        String xpathToLegendBandParameter = "jasper:image/jasper:imageExpression";
+        Element imgExpressionElement = (Element) XMLTools.getNode( clonedLegendBandElement, xpathToLegendBandParameter,
+                                                                   nsc );
+        Document ownerDocument = imgExpressionElement.getOwnerDocument();
+        CDATASection newCData = ownerDocument.createCDATASection( "$P{" + legendParameterName + "}" );
+        Node oldCData = imgExpressionElement.getFirstChild();
+        imgExpressionElement.replaceChild( newCData, oldCData );
+        legendBandParentNode.insertBefore( clonedLegendBandElement, templateLegendBandElement );
+    }
+
+    private void manipulateParameter( Element templateParamElement, Node paramParentNode, String legendParameterName ) {
+        Element clonedParameterElement = (Element) templateParamElement.cloneNode( true );
+        clonedParameterElement.setAttribute( "name", legendParameterName );
+        paramParentNode.insertBefore( clonedParameterElement, templateParamElement );
+    }
+
+    private LegendMetadata parseLegendMetadata( String path, ViewContext vc )
+                            throws Exception {
+        File file = new File( path );
+        XMLFragment xml = new XMLFragment( file );
+        String legendBgColor = getInitParameter( "LEGENDBGCOLOR" );
+        int spacing = parseSpacing( 10 );
+        String xpath = "jasper:detail/jasper:band/jasper:image/jasper:reportElement[./@key = 'legendTemplateBand']";
+        Element element = (Element) XMLTools.getNode( xml.getRootElement(), xpath, nsc );
+        int maxScaleInPercent = parseAsInt( "MAXSCALETOFITINPERCENT", -1 );
+        String initParameterLegendToLargeMsg = getInitParameter( "LEGENDTOLARGEMSG" );
+        String legendToLargeMsg = initParameterLegendToLargeMsg != null ? initParameterLegendToLargeMsg
+                                                                       : "Legend %sis too large.";
+        if ( element != null ) {
+            int width = XMLTools.getNodeAsInt( element, "@width", nsc, Integer.MIN_VALUE );
+            int height = XMLTools.getNodeAsInt( element, "@height", nsc, Integer.MIN_VALUE );
+            int numberOfColumns = calculateNoOfColumns( width, height );
+            if ( width != Integer.MIN_VALUE && height != Integer.MIN_VALUE ) {
+                LOG.logDebug( "Found legend on multiple pages, each page with width " + width + " and height " + height );
+                return new LegendMetadata( true, width, height, legendBgColor, numberOfColumns, spacing,
+                                           maxScaleInPercent, legendToLargeMsg );
+            }
+        }
+        int width = Integer.parseInt( getInitParameter( "LEGENDWIDTH" ) );
+        int height = Integer.parseInt( getInitParameter( "LEGENDHEIGHT" ) );
+        LOG.logDebug( "Default legend." );
+        return new LegendMetadata( false, width, height, legendBgColor, 1, spacing, maxScaleInPercent, legendToLargeMsg );
+    }
+
+    private int parseAsInt( String paramName, int defaultValue ) {
+        String initParameter = getInitParameter( paramName );
+        if ( initParameter != null )
+            try {
+                return Integer.parseInt( initParameter );
+            } catch ( NumberFormatException e ) {
+                LOG.logWarning( "Value of parameter " + paramName + " is not a valid integer!" );
+            }
+        return defaultValue;
+    }
+
+    private int calculateHeight( Pair<Integer, Integer> size, Integer dpi ) {
+        int height = Integer.parseInt( getInitParameter( "HEIGHT" ) );
+        if ( dpi != null ) {
+            height = (int) Math.round( size.second * ( dpi / 72d ) );
+        }
+        return height;
+    }
+
+    private int calculateWidth( Pair<Integer, Integer> size, Integer dpi ) {
+        int width = Integer.parseInt( getInitParameter( "WIDTH" ) );
+        if ( dpi != null ) {
+            width = (int) Math.round( size.first * ( dpi / 72d ) );
+        }
+        return width;
+    }
+
+    private Envelope calculateBbox( ViewContext vc, RPCStruct struct, Pair<Integer, Integer> size, int width, int height ) {
+        // set boundingbox/envelope
+        Point[] points = vc.getGeneral().getBoundingBox();
+        Envelope bbox = GeometryFactory.createEnvelope( points[0].getPosition(), points[1].getPosition(),
+                                                        points[0].getCoordinateSystem() );
+        bbox = MapUtils.ensureAspectRatio( bbox, width, height );
+        double ms = ( size.first / 72d ) * 0.0254;
+        double currentScale = bbox.getWidth() / ms;
+        bbox = zoomToScale( bbox, currentScale, struct.getMember( "SCALE" ) );
+        return bbox;
+    }
+
+    private Integer calculateDpi( RPCStruct struct ) {
+        Integer dpi = null;
+        if ( struct.getMember( "DPI" ) != null ) {
+            dpi = Integer.parseInt( struct.getMember( "DPI" ).getValue().toString() );
+        }
+        LOG.logInfo( "dpi: ", dpi );
+        return dpi;
+    }
+
+    private double calculateScale( Envelope bbox, int width, int height ) {
+        double dx = bbox.getWidth() / width;
+        double dy = bbox.getHeight() / height;
+        return Math.sqrt( dx * dx + dy * dy );
+    }
+
+    private int calculateNoOfColumns( int width, int height ) {
+        if ( width > height )
+            return parseAsInt( "NUMBEROFCOLUMNS_LANDSCAPE", 4 );
+        return parseAsInt( "NUMBEROFCOLUMNS_PORTAIT", 4 );
+    }
+
+    private int parseSpacing( int defaultSpacing ) {
+        try {
+            String spacingParameter = getInitParameter( "SPACING" );
+            if ( spacingParameter != null )
+                return Integer.parseInt( spacingParameter );
+        } catch ( NumberFormatException e ) {
+            LOG.logWarning( "Could not parse parameter SPACING (from controller.xml): " + e.getMessage() );
+        }
+        return defaultSpacing;
     }
 
     /**
-     * 
-     * TODO add class documentation here
-     * 
      * @author <a href="mailto:name@deegree.org">Andreas Poth</a>
      * @author last edited by: $Author: apoth $
      * 
@@ -794,7 +856,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         private Element layerTemplate;
 
         private int count = 0;
-        
+
         private int spaceing;
 
         /**
@@ -822,7 +884,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                 if ( !mmLayer.isHidden() ) {
                     Element newGroup = (Element) groupTemplate.cloneNode( true );
                     Node n = XMLTools.getNode( newGroup, "jasper:reportElement/@y", nsc );
-                    n.setNodeValue( Integer.toString( count * spaceing )  );
+                    n.setNodeValue( Integer.toString( count * spaceing ) );
                     count++;
                     n = XMLTools.getNode( newGroup, "jasper:text/text()", nsc );
                     n.setNodeValue( layerGroup.getTitle() );
@@ -843,7 +905,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             if ( !layer.isHidden() ) {
                 Element newLayer = (Element) layerTemplate.cloneNode( true );
                 Node n = XMLTools.getNode( newLayer, "jasper:reportElement/@y", nsc );
-                n.setNodeValue( Integer.toString( count * spaceing )  );
+                n.setNodeValue( Integer.toString( count * spaceing ) );
                 count++;
                 n = XMLTools.getNode( newLayer, "jasper:text/text()", nsc );
                 n.setNodeValue( layer.getTitle() );
