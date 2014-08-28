@@ -77,6 +77,7 @@ import net.sf.jasperreports.engine.design.JasperDesign;
 import org.deegree.enterprise.control.AbstractListener;
 import org.deegree.enterprise.control.FormEvent;
 import org.deegree.enterprise.control.RPCMember;
+import org.deegree.enterprise.control.RPCParameter;
 import org.deegree.enterprise.control.RPCStruct;
 import org.deegree.enterprise.control.RPCWebEvent;
 import org.deegree.framework.log.ILogger;
@@ -93,7 +94,6 @@ import org.deegree.framework.xml.XMLParsingException;
 import org.deegree.framework.xml.XMLTools;
 import org.deegree.model.spatialschema.Envelope;
 import org.deegree.model.spatialschema.GeometryFactory;
-import org.deegree.model.spatialschema.Point;
 import org.deegree.ogcbase.CommonNamespaces;
 import org.deegree.ogcwebservices.InconsistentRequestException;
 import org.deegree.ogcwebservices.wms.operation.GetMap;
@@ -179,21 +179,13 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         }
     }
 
-    /**
-     * 
-     * @param vc
-     * @param rpc
-     * @throws PortalException
-     * @throws IOException
-     * @throws SAXException
-     * @throws XMLParsingException
-     * @throws InconsistentRequestException
-     */
     private void printMap( ViewContext vc, RPCWebEvent rpc )
                             throws Exception {
+        RPCParameter[] parameters = rpc.getRPCMethodCall().getParameters();
+        RPCStruct param1 = (RPCStruct) parameters[1].getValue();
+        RPCStruct param2 = (RPCStruct) parameters[2].getValue();
 
-        RPCStruct struct = (RPCStruct) rpc.getRPCMethodCall().getParameters()[1].getValue();
-        String printTemplate = (String) struct.getMember( "TEMPLATE" ).getValue();
+        String printTemplate = (String) param1.getMember( "TEMPLATE" ).getValue();
 
         // read print template directory from defaultTemplateDir, or, if available, from the init
         // parameters
@@ -208,16 +200,16 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
 
         Pair<Integer, Integer> scaleBarBize = getScaleBarSize( pathx );
 
-        Integer dpi = calculateDpi( struct );
-        int width = calculateWidth( dpi, printMetadata );
-        int height = calculateHeight( dpi, printMetadata );
-        Envelope bbox = calculateBbox( vc, struct, printMetadata, width, height );
+        Integer dpi = calculateDpi( param1 );
+        int widthDpi = calculateWidth( dpi, printMetadata );
+        int heightDpi = calculateHeight( dpi, printMetadata );
+        Envelope bbox = calculateBbox( param2, param1, printMetadata );
+        double scaleDenominator = calculateScaleDenominator( printMetadata, bbox );
 
-        List<String> getMap = createGetMapRequests( vc, rpc, bbox, width, height );
+        List<String> getMap = createGetMapRequests( vc, rpc, bbox, widthDpi, heightDpi );
         String image = performGetMapRequests( getMap );
 
-        double scaleForLegend = calculateScale( bbox, width, height );
-        List<String[]> legendURLs = createLegendURLs( vc, scaleForLegend );
+        List<String[]> legendURLs = createLegendURLs( vc, bbox, scaleDenominator );
         Map<String, String> parameterName2Legends = accessLegend( printMetadata.getLegendMetadata(), legendURLs );
 
         BufferedImage scaleBar = null;
@@ -225,7 +217,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             scaleBar = createScaleBar( rpc, getMap, scaleBarBize, printMetadata );
         }
 
-        String format = (String) rpc.getRPCMethodCall().getParameters()[0].getValue();
+        String format = (String) parameters[0].getValue();
 
         if ( LOG.getLevel() == ILogger.LOG_DEBUG ) {
             LOG.logDebug( "The jrxml template is read from: ", pathx );
@@ -251,11 +243,10 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         SimpleDateFormat sdf = new SimpleDateFormat( "dd.MM.yyyy", Locale.getDefault() );
         parameter.put( "DATE", sdf.format( new GregorianCalendar().getTime() ) );
 
-        double scale = calcScale( printMetadata, getMap.get( 0 ) );
-        parameter.put( "MAPSCALE", "" + Math.round( scale ) );
-        LOG.logDebug( "print map scale: ", scale );
+        parameter.put( "MAPSCALE", "" + Math.round( scaleDenominator ) );
+        LOG.logDebug( "print map scale: ", scaleDenominator );
         // set text area values
-        RPCMember[] members = struct.getMembers();
+        RPCMember[] members = param1.getMembers();
         for ( int i = 0; i < members.length; i++ ) {
             if ( members[i].getName().startsWith( "TA:" ) ) {
                 String s = members[i].getName().substring( 3, members[i].getName().length() );
@@ -328,26 +319,6 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         return new Pair<Integer, Integer>( w, h );
     }
 
-    protected double calcScale( PrintMetadata printMetadata, String getmap )
-                            throws InconsistentRequestException, XMLParsingException, IOException, SAXException {
-        // TODO The map path is static. It should be instead read from somewhere else.
-        // A good idea would be to save the path in the web.xml of the corresponding application,
-        // or in controller.xml of the PdfPrintListener and sends it with rpc request
-
-        Map<String, String> model = KVP2Map.toMap( getmap );
-        model.put( "ID", "22" );
-        GetMap gm = GetMap.create( model );
-
-        // CoordinateSystem crs = CRSFactory.create( gm.getSrs() );
-
-        // map size in template in metre; templates generated by iReport are designed
-        // to assume a resolution of 72dpi
-        double ms = ( printMetadata.getMapWidth() / 72d ) * 0.0254;
-        // TODO
-        // consider no metric CRS
-        return gm.getBoundingBox().getWidth() / ms;
-    }
-
     /**
      * accesses the legend URLs passed, draws the result onto an image that are stored in a temporary file. The name of
      * the file will be returned.
@@ -414,12 +385,6 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         return storeImage( sc, tempDir, bi );
     }
 
-    /**
-     * 
-     * @param list
-     * @param scaleBarBize
-     * @return
-     */
     private BufferedImage createScaleBar( RPCWebEvent rpc, List<String> list, Pair<Integer, Integer> scaleBarBize,
                                           PrintMetadata printMetadata ) {
         int w = printMetadata.getMapWidth();
@@ -541,13 +506,10 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         return list;
     }
 
-    /**
-     * @param bbox
-     * @param scaleDef
-     * @return
-     */
-    private Envelope zoomToScale( Envelope bbox, double currentScale, RPCMember scaleDef ) {
+    private Envelope zoomToScale( Envelope bbox, PrintMetadata printMetadata, RPCMember scaleDef ) {
         if ( scaleDef != null ) {
+            double ms = ( printMetadata.getMapWidth() / 72d ) * 0.0254;
+            double currentScale = bbox.getWidth() / ms;
             String value = scaleDef.getValue().toString();
             if ( "currentBBOX".equals( value ) ) {
                 // DO nothing
@@ -562,6 +524,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                 double newScale = Double.parseDouble( value.trim() );
                 bbox = MapUtils.scaleEnvelope( bbox, currentScale, newScale );
             }
+
         }
         return bbox;
     }
@@ -597,11 +560,14 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * a LegendURL
      * 
      * @param vc
-     * @param scale
+     * @param printMetadata
+     * @param heightDpi
+     * @param widthDpi
      * @return legend access URLs for all visible layers of the passed view context. If a visible layer does not define
      *         a LegendURL
      */
-    private List<String[]> createLegendURLs( ViewContext vc, double scale ) {
+    private List<String[]> createLegendURLs( ViewContext vc, Envelope bbox, double scaleDenominator ) {
+        double scale = calculateScaleHint( scaleDenominator );
         Layer[] layers = vc.getLayerList().getLayers();
         List<String[]> list = new ArrayList<String[]>();
         for ( int i = 0; i < layers.length; i++ ) {
@@ -620,10 +586,6 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
     }
 
     private boolean layerIsInScale( double scale, Layer layer ) {
-        System.out.println( layer.getName() + " -- " + layer.getTitle() );
-        System.out.println( scale );
-        System.out.println( layer.getExtension().getMinScaleHint() );
-        System.out.println( layer.getExtension().getMaxScaleHint() );
         if ( scale < layer.getExtension().getMinScaleHint() || scale > layer.getExtension().getMaxScaleHint() ) {
             return false;
         }
@@ -799,15 +761,22 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         return width;
     }
 
-    private Envelope calculateBbox( ViewContext vc, RPCStruct struct, PrintMetadata printMetadata, int width, int height ) {
+    private Envelope calculateBbox( RPCStruct bboxStruct, RPCStruct scaleStruct, PrintMetadata printMetadata ) {
         // set boundingbox/envelope
-        Point[] points = vc.getGeneral().getBoundingBox();
-        Envelope bbox = GeometryFactory.createEnvelope( points[0].getPosition(), points[1].getPosition(),
-                                                        points[0].getCoordinateSystem() );
+        RPCMember member = bboxStruct.getMember( "boundingBox" );
+        RPCStruct subStruct = (RPCStruct) member.getValue();
+
+        double minx = (Double) subStruct.getMember( "minx" ).getValue();
+        double miny = (Double) subStruct.getMember( "miny" ).getValue();
+        double maxx = (Double) subStruct.getMember( "maxx" ).getValue();
+        double maxy = (Double) subStruct.getMember( "maxy" ).getValue();
+
+        int width = printMetadata.getMapWidth();
+        int height = printMetadata.getMapHeight();
+
+        Envelope bbox = GeometryFactory.createEnvelope( minx, miny, maxx, maxy, null );
         bbox = MapUtils.ensureAspectRatio( bbox, width, height );
-        double ms = ( printMetadata.getMapWidth() / 72d ) * 0.0254;
-        double currentScale = bbox.getWidth() / ms;
-        bbox = zoomToScale( bbox, currentScale, struct.getMember( "SCALE" ) );
+        bbox = zoomToScale( bbox, printMetadata, scaleStruct.getMember( "SCALE" ) );
         return bbox;
     }
 
@@ -820,10 +789,25 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         return dpi;
     }
 
-    private double calculateScale( Envelope bbox, int width, int height ) {
-        double dx = bbox.getWidth() / width;
-        double dy = bbox.getHeight() / height;
-        return Math.sqrt( dx * dx + dy * dy );
+    private double calculateScaleHint( double scaleDenominator ) {
+        double pixelwidth = scaleDenominator * 0.00028;
+        return Math.sqrt( 2 * ( pixelwidth * pixelwidth ) );
+    }
+
+    private double calculateScaleDenominator( PrintMetadata printMetadata, Envelope bbox )
+                            throws InconsistentRequestException, XMLParsingException, IOException, SAXException {
+        // TODO The map path is static. It should be instead read from somewhere else.
+        // A good idea would be to save the path in the web.xml of the corresponding application,
+        // or in controller.xml of the PdfPrintListener and sends it with rpc request
+
+        // CoordinateSystem crs = CRSFactory.create( gm.getSrs() );
+
+        // map size in template in metre; templates generated by iReport are designed
+        // to assume a resolution of 72dpi
+        double ms = ( printMetadata.getMapWidth() / 72d ) * 0.0254;
+        // TODO
+        // consider no metric CRS
+        return bbox.getWidth() / ms;
     }
 
     private int calculateNoOfColumns( int width, int height ) {
