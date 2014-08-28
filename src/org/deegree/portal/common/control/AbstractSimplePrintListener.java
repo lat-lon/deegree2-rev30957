@@ -209,8 +209,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         List<String> getMap = createGetMapRequests( vc, rpc, bbox, widthDpi, heightDpi );
         String image = performGetMapRequests( getMap );
 
-        List<String[]> legendURLs = createLegendURLs( vc, bbox, scaleDenominator );
-        Map<String, String> parameterName2Legends = accessLegend( printMetadata.getLegendMetadata(), legendURLs );
+        Map<String, String> parameterName2Legends = createLegendImages( printMetadata.getLegendMetadata(), vc,
+                                                                        scaleDenominator );
 
         BufferedImage scaleBar = null;
         if ( scaleBarBize.first > 0 ) {
@@ -328,7 +328,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * @param legends
      * @return filename of image file
      */
-    private Map<String, String> accessLegend( LegendMetadata legendMetadata, List<String[]> legends )
+    private Map<String, String> createLegendImages( LegendMetadata legendMetadata, ViewContext vc,
+                                                    double scaleDenominator )
                             throws IOException {
         String missingImageUrl = null;
         if ( getInitParameter( "MISSING_IMAGE" ) != null )
@@ -337,7 +338,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         LegendImageWriter legendImageWriter = new LegendImageWriter( missingImageUrl, tempDir );
 
         ServletContext sc = ( (HttpServletRequest) this.getRequest() ).getSession( true ).getServletContext();
-        return legendImageWriter.accessLegend( sc, legendMetadata, legends );
+        List<String[]> legendURLs = createLegendURLs( vc, scaleDenominator );
+        return legendImageWriter.accessLegend( sc, legendMetadata, legendURLs );
     }
 
     /**
@@ -560,13 +562,11 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * a LegendURL
      * 
      * @param vc
-     * @param printMetadata
-     * @param heightDpi
-     * @param widthDpi
+     * @param scaleDenominator
      * @return legend access URLs for all visible layers of the passed view context. If a visible layer does not define
      *         a LegendURL
      */
-    private List<String[]> createLegendURLs( ViewContext vc, Envelope bbox, double scaleDenominator ) {
+    private List<String[]> createLegendURLs( ViewContext vc, double scaleDenominator ) {
         double scale = calculateScaleHint( scaleDenominator );
         Layer[] layers = vc.getLayerList().getLayers();
         List<String[]> list = new ArrayList<String[]>();
