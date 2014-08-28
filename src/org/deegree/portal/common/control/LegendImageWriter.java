@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
 
 import org.deegree.framework.log.ILogger;
@@ -204,9 +205,10 @@ public class LegendImageWriter {
 
     private LegendImage createLegendImageWithExtent( LegendMetadata legendMetadata, String[] legend )
                             throws IOException {
-        BufferedImage legendImage = createLegendImage( legend );
+        float columnWidth = calculateColumnWidth( legendMetadata );
+        BufferedImage legendImage = createLegendImage( legend, legendMetadata, (int) columnWidth );
         if ( legendImage != null ) {
-            if ( !legendFitsInColumn( legendMetadata, legendImage ) )
+            if ( !legendFitsInColumn( legendMetadata, legendImage, columnWidth ) )
                 legendImage = createLegendImageDoesNotFit( legendMetadata, legend[0] );
             return new LegendImage( legend[0], legendImage );
         }
@@ -295,10 +297,74 @@ public class LegendImageWriter {
         return null;
     }
 
-    boolean legendFitsInColumn( LegendMetadata legendMetadata, BufferedImage legendImage ) {
+    private BufferedImage createLegendImage( String[] s, LegendMetadata legendMetadata, int columnWidth )
+                            throws IOException {
+        try {
+            return ImageUtils.loadImage( new URL( s[1] ) );
+        } catch ( Exception e ) {
+            LOG.logDebug( "Exception for Layer: " + s[0] + " - " + s[1] + ": " + e.getLocalizedMessage() );
+            return createMissingLegendImage( s[0], legendMetadata, columnWidth );
+        }
+    }
+
+    private BufferedImage createMissingLegendImage( String layerName, LegendMetadata legendMetadata, int columnWidth )
+                            throws IOException {
+        if ( missingLegendUrl != null ) {
+            File missingImage = new File( missingLegendUrl );
+            if ( missingImage.exists() ) {
+                BufferedImage missingLegendImage = ImageUtils.loadImage( missingImage );
+                return createMissingLegend( legendMetadata, missingLegendImage, layerName, columnWidth );
+            }
+        }
+        return null;
+    }
+
+    private BufferedImage createMissingLegend( LegendMetadata legendMetadata, BufferedImage missingImg,
+                                               String layerName, int columnWidth ) {
+        int spacing = legendMetadata.getSpacing();
+        int calculatedHeight = calculateHeight( layerName, columnWidth );
+
+        int height = missingImg.getHeight() + spacing + calculatedHeight + spacing;
+        BufferedImage missingLegend = new BufferedImage( columnWidth, height, BufferedImage.TYPE_INT_ARGB );
+        Graphics2D g = createGraphics( legendMetadata.getLegendBgColor(), missingLegend );
+        g.drawImage( missingImg, 0, 0, missingImg.getWidth(), missingImg.getHeight(), null );
+        g.setColor( Color.RED );
+
+        AttributedString attributedString = createAttributedString( layerName );
+
+        AttributedCharacterIterator paragraph = attributedString.getIterator();
+        int paragraphStart = paragraph.getBeginIndex();
+        int paragraphEnd = paragraph.getEndIndex();
+        FontRenderContext frc = g.getFontRenderContext();
+        LineBreakMeasurer lineMeasurer = new LineBreakMeasurer( paragraph, frc );
+
+        float breakWidth = columnWidth - spacing;
+        float drawPosY = missingImg.getHeight() + spacing;
+        lineMeasurer.setPosition( paragraphStart );
+
+        while ( lineMeasurer.getPosition() < paragraphEnd ) {
+            TextLayout layout = lineMeasurer.nextLayout( breakWidth );
+            float drawPosX = layout.isLeftToRight() ? 0 : breakWidth - layout.getAdvance();
+            drawPosY += layout.getAscent();
+            layout.draw( g, drawPosX, drawPosY );
+            drawPosY += layout.getDescent() + layout.getLeading();
+        }
+        g.dispose();
+
+        try {
+            ImageIO.write( missingLegend, "png", File.createTempFile( "missingLegend_", ".png" ) );
+        } catch ( IOException e ) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        return missingLegend;
+    }
+
+    boolean legendFitsInColumn( LegendMetadata legendMetadata, BufferedImage legendImage, float columnWidth ) {
         int maxSizeToFitInPercent = legendMetadata.getMaxSizeToFitInPercent();
 
-        double requiredWidthScaleInPercent = calculateColumnWidth( legendMetadata ) / legendImage.getWidth() * 100;
+        double requiredWidthScaleInPercent = columnWidth / legendImage.getWidth() * 100;
         if ( requiredWidthScaleInPercent < maxSizeToFitInPercent )
             return false;
 
