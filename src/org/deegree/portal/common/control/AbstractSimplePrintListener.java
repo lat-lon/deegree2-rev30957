@@ -103,6 +103,7 @@ import org.deegree.portal.context.Layer;
 import org.deegree.portal.context.LayerGroup;
 import org.deegree.portal.context.MMLayer;
 import org.deegree.portal.context.MapModel;
+import org.deegree.portal.context.MapModelEntry;
 import org.deegree.portal.context.MapModelVisitor;
 import org.deegree.portal.context.Style;
 import org.deegree.portal.context.ViewContext;
@@ -568,21 +569,36 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      */
     private List<String[]> createLegendURLs( ViewContext vc, double scaleDenominator ) {
         double scale = calculateScaleHint( scaleDenominator );
-        Layer[] layers = vc.getLayerList().getLayers();
         List<String[]> list = new ArrayList<String[]>();
-        for ( int i = 0; i < layers.length; i++ ) {
-            Layer layer = layers[i];
-            if ( !layer.isHidden() && layerIsInScale( scale, layer ) ) {
-                Style style = layer.getStyleList().getCurrentStyle();
-                String[] s = new String[2];
-                s[0] = layer.getTitle();
-                if ( style.getLegendURL() != null ) {
-                    s[1] = style.getLegendURL().getOnlineResource().toExternalForm();
-                }
-                list.add( s );
+        MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
+        List<MapModelEntry> mapModelEntries = mapModel.getMapModelEntries();
+        addLegendUrls( vc, scale, list, mapModelEntries );
+        return list;
+    }
+
+    private void addLegendUrls( ViewContext vc, double scale, List<String[]> list, List<MapModelEntry> mapModelEntries ) {
+        for ( MapModelEntry mapModelEntry : mapModelEntries ) {
+            if ( mapModelEntry instanceof LayerGroup ) {
+                LayerGroup group = (LayerGroup) mapModelEntry;
+                addLegendUrls( vc, scale, list, group.getMapModelEntries() );
+            } else if ( mapModelEntry instanceof MMLayer ) {
+                addLegendUrl( vc, scale, list, mapModelEntry );
             }
         }
-        return list;
+    }
+
+    private void addLegendUrl( ViewContext vc, double scale, List<String[]> list, MapModelEntry mapModelEntry ) {
+        MMLayer layerM = (MMLayer) mapModelEntry;
+        Layer layer = vc.getLayerList().getLayer( layerM.getIdentifier(), null );
+        if ( !layer.isHidden() && layerIsInScale( scale, layer ) ) {
+            Style style = layer.getStyleList().getCurrentStyle();
+            String[] s = new String[2];
+            s[0] = layer.getTitle();
+            if ( style.getLegendURL() != null ) {
+                s[1] = style.getLegendURL().getOnlineResource().toExternalForm();
+            }
+            list.add( s );
+        }
     }
 
     private boolean layerIsInScale( double scale, Layer layer ) {
