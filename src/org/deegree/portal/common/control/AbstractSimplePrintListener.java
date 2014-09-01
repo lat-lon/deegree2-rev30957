@@ -101,6 +101,7 @@ import org.deegree.portal.PortalException;
 import org.deegree.portal.PortalUtils;
 import org.deegree.portal.context.Layer;
 import org.deegree.portal.context.LayerGroup;
+import org.deegree.portal.context.LayerList;
 import org.deegree.portal.context.MMLayer;
 import org.deegree.portal.context.MapModel;
 import org.deegree.portal.context.MapModelEntry;
@@ -589,7 +590,12 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
 
     private void addLegendUrl( ViewContext vc, double scale, List<String[]> list, MapModelEntry mapModelEntry ) {
         MMLayer layerM = (MMLayer) mapModelEntry;
-        Layer layer = vc.getLayerList().getLayer( layerM.getIdentifier(), null );
+        String identifier = layerM.getIdentifier();
+        Layer layer = findLayerWithIdentifier( vc, identifier );
+        if ( layer == null ) {
+            LOG.logWarning( "Could not found layer with identifier " + identifier + ". Layer will be ignored!" );
+            return;
+        }
         if ( !layer.isHidden() && layerIsInScale( scale, layer ) ) {
             Style style = layer.getStyleList().getCurrentStyle();
             String[] s = new String[2];
@@ -599,6 +605,16 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             }
             list.add( s );
         }
+    }
+
+    private Layer findLayerWithIdentifier( ViewContext vc, String identifier ) {
+        LayerList layerList = vc.getLayerList();
+        for ( Layer layer : layerList.getLayers() ) {
+            if ( identifier.equals( layer.getExtension().getIdentifier() ) ) {
+                return layer;
+            }
+        }
+        return null;
     }
 
     private boolean layerIsInScale( double scale, Layer layer ) {
