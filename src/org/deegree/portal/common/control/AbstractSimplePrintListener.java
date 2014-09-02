@@ -268,7 +268,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         JasperReport jreport = getReport( xmlReport );
         if ( "application/pdf".equals( format ) ) {
             // create the pdf
-            Object result = null;
+            byte[] result = null;
             try {
                 JRDataSource ds = new JREmptyDataSource();
                 result = JasperRunManager.runReportToPdf( jreport, parameter, ds );
@@ -412,7 +412,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         return img;
     }
 
-    private void forwardPDF( Object result )
+    private void forwardPDF( byte[] result )
                             throws PortalException {
         // must be a byte array
         String tempDir = getInitParameter( "TEMPDIR" );
@@ -428,10 +428,9 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         String s = StringTools.concat( 200, sc.getRealPath( tempDir ), '/', fileName, ".pdf" );
         try {
             RandomAccessFile raf = new RandomAccessFile( s, "rw" );
-            raf.write( (byte[]) result );
+            raf.write( result );
             raf.close();
         } catch ( Exception e ) {
-            e.printStackTrace();
             LOG.logError( "could not write temporary pdf file: " + s, e );
             throw new PortalException( Messages.format( "AbstractSimplePrintListener.PDFCREATION", s ), e );
         }
