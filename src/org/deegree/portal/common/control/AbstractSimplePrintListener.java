@@ -752,6 +752,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         String initParameterLegendToLargeMsg = getInitParameter( "LEGENDTOLARGEMSG" );
         String legendToLargeMsg = initParameterLegendToLargeMsg != null ? initParameterLegendToLargeMsg
                                                                        : "Legend %sis too large.";
+        String fontFamily = parseAsString( "FONT_FAMILY", "Serif" );
+        float fontSize = parseAsFloat( "FONT_SIZE", 12 );
         if ( element != null ) {
             int width = XMLTools.getNodeAsInt( element, "@width", nsc, Integer.MIN_VALUE );
             int height = XMLTools.getNodeAsInt( element, "@height", nsc, Integer.MIN_VALUE );
@@ -759,13 +761,22 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             if ( width != Integer.MIN_VALUE && height != Integer.MIN_VALUE ) {
                 LOG.logDebug( "Found legend on multiple pages, each page with width " + width + " and height " + height );
                 return new LegendMetadata( true, width, height, legendBgColor, numberOfColumns, spacing,
-                                           maxScaleInPercent, legendToLargeMsg );
+                                           maxScaleInPercent, legendToLargeMsg, fontFamily, fontSize );
             }
         }
         int width = Integer.parseInt( getInitParameter( "LEGENDWIDTH" ) );
         int height = Integer.parseInt( getInitParameter( "LEGENDHEIGHT" ) );
         LOG.logDebug( "Default legend." );
-        return new LegendMetadata( false, width, height, legendBgColor, 1, spacing, maxScaleInPercent, legendToLargeMsg );
+        return new LegendMetadata( false, width, height, legendBgColor, 1, spacing, maxScaleInPercent,
+                                   legendToLargeMsg, fontFamily, fontSize );
+    }
+
+    private String parseAsString( String paramName, String defaultValue ) {
+        String initParameter = getInitParameter( paramName );
+        if ( initParameter != null ){
+            return initParameter;
+        }
+        return defaultValue;
     }
 
     private int parseAsInt( String paramName, int defaultValue ) {
@@ -773,6 +784,17 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         if ( initParameter != null )
             try {
                 return Integer.parseInt( initParameter );
+            } catch ( NumberFormatException e ) {
+                LOG.logWarning( "Value of parameter " + paramName + " is not a valid integer!" );
+            }
+        return defaultValue;
+    }
+
+    private float parseAsFloat( String paramName, float defaultValue ) {
+        String initParameter = getInitParameter( paramName );
+        if ( initParameter != null )
+            try {
+                return Float.parseFloat( initParameter );
             } catch ( NumberFormatException e ) {
                 LOG.logWarning( "Value of parameter " + paramName + " is not a valid integer!" );
             }
