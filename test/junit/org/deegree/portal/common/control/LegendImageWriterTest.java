@@ -10,6 +10,7 @@ import javax.imageio.ImageIO;
 
 import junit.framework.TestCase;
 
+import org.deegree.framework.util.Pair;
 import org.deegree.portal.common.control.LegendImageWriter.LegendImage;
 
 /**
@@ -160,8 +161,8 @@ public class LegendImageWriterTest extends TestCase {
                             throws Exception {
         int childWidth = 4;
         int childHeight = 5;
-        String[] legend = createLegend( "test1", childWidth, childHeight );
-        List<String[]> legends = createLegends( legend );
+        Pair<String, URL> legend = createLegend( "test1", childWidth, childHeight );
+        List<Pair<String, URL>> legends = createLegends( legend );
 
         List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata( 100, 100 ),
                                                                                  legends );
@@ -179,12 +180,12 @@ public class LegendImageWriterTest extends TestCase {
 
     public void testSzenario2()
                             throws Exception {
-        String[] legend1 = createLegend( "test1", 20, 45 );
-        String[] legend2 = createLegend( "test2", 20, 20 );
-        String[] legend3 = createLegend( "test3", 13, 23 );
-        String[] legend4 = createLegend( "test4", 25, 50 );
+        Pair<String, URL> legend1 = createLegend( "test1", 20, 45 );
+        Pair<String, URL> legend2 = createLegend( "test2", 20, 20 );
+        Pair<String, URL> legend3 = createLegend( "test3", 13, 23 );
+        Pair<String, URL> legend4 = createLegend( "test4", 25, 50 );
 
-        List<String[]> legends = createLegends( legend1, legend2, legend3, legend4 );
+        List<Pair<String, URL>> legends = createLegends( legend1, legend2, legend3, legend4 );
 
         List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata( 100, 50 ),
                                                                                  legends );
@@ -220,11 +221,11 @@ public class LegendImageWriterTest extends TestCase {
 
     public void testSzenario3()
                             throws Exception {
-        String[] legend1 = createLegend( "test1", 25, 60 );
-        String[] legend2 = createLegend( "test2", 20, 90 );
-        String[] legend3 = createLegend( "test3", 14, 20 );
+        Pair<String, URL> legend1 = createLegend( "test1", 25, 60 );
+        Pair<String, URL> legend2 = createLegend( "test2", 20, 90 );
+        Pair<String, URL> legend3 = createLegend( "test3", 14, 20 );
 
-        List<String[]> legends = createLegends( legend1, legend2, legend3 );
+        List<Pair<String, URL>> legends = createLegends( legend1, legend2, legend3 );
 
         List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata( 100, 85 ),
                                                                                  legends );
@@ -254,12 +255,12 @@ public class LegendImageWriterTest extends TestCase {
 
     public void testSzenario4()
                             throws Exception {
-        String[] legend1 = createLegend( "test1", 25, 60 );
-        String[] legend2 = createLegend( "test2", 20, 45 );
-        String[] legend3 = createLegend( "test3", 14, 20 );
-        String[] legend4 = createLegend( "test4", 25, 50 );
+        Pair<String, URL> legend1 = createLegend( "test1", 25, 60 );
+        Pair<String, URL> legend2 = createLegend( "test2", 20, 45 );
+        Pair<String, URL> legend3 = createLegend( "test3", 14, 20 );
+        Pair<String, URL> legend4 = createLegend( "test4", 25, 50 );
 
-        List<String[]> legends = createLegends( legend1, legend2, legend3, legend4 );
+        List<Pair<String, URL>> legends = createLegends( legend1, legend2, legend3, legend4 );
 
         List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata( 100, 60 ),
                                                                                  legends );
@@ -298,11 +299,11 @@ public class LegendImageWriterTest extends TestCase {
 
     public void testSzenario5()
                             throws Exception {
-        String[] legend1 = createLegend( "test1", 25, 60 );
-        String[] legend2 = createLegend( "test2", 20, 45 );
-        String[] legend3 = createLegend( "test3", 80, 141 );
+        Pair<String, URL> legend1 = createLegend( "test1", 25, 60 );
+        Pair<String, URL> legend2 = createLegend( "test2", 20, 45 );
+        Pair<String, URL> legend3 = createLegend( "test3", 80, 141 );
 
-        List<String[]> legends = createLegends( legend1, legend2, legend3 );
+        List<Pair<String, URL>> legends = createLegends( legend1, legend2, legend3 );
 
         List<List<LegendImage>> legendPages = legendComponent.createLegendPages( createLegendMetadata( 100, 100 ),
                                                                                  legends );
@@ -331,49 +332,56 @@ public class LegendImageWriterTest extends TestCase {
     public void testLegendFitsInColumnFits()
                             throws Exception {
         BufferedImage legendImage = createBufferedImage( 20, 20 );
-        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 100 ), legendImage );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 100 ), legendImage,
+                                                                         30 );
         assertTrue( legendFitsInColumn );
     }
 
     public void testLegendFitsInColumnFitsExactHeight()
                             throws Exception {
         BufferedImage legendImage = createBufferedImage( 25, 50 );
-        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 50 ), legendImage );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 50 ), legendImage,
+                                                                         30 );
         assertTrue( legendFitsInColumn );
     }
 
     public void testLegendFitsInColumnFitsExactWidth()
                             throws Exception {
         BufferedImage legendImage = createBufferedImage( 35, 60 );
-        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 125, 70 ), legendImage );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 125, 70 ), legendImage,
+                                                                         39 );
         assertTrue( legendFitsInColumn );
     }
 
     public void testLegendFitsInColumnFitsScaleHeight()
                             throws Exception {
         BufferedImage legendImage = createBufferedImage( 35, 60 );
-        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 150, 56 ), legendImage );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 150, 56 ), legendImage,
+                                                                         46 );
         assertTrue( legendFitsInColumn );
     }
 
     public void testLegendFitsInColumnFitsScaleWidth()
                             throws Exception {
         BufferedImage legendImage = createBufferedImage( 35, 60 );
-        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 120, 60 ), legendImage );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 120, 60 ), legendImage,
+                                                                         37 );
         assertTrue( legendFitsInColumn );
     }
 
     public void testLegendFitsInColumnFitsNotInHeight()
                             throws Exception {
         BufferedImage legendImage = createBufferedImage( 20, 45 );
-        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 30 ), legendImage );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 30 ), legendImage,
+                                                                         30 );
         assertFalse( legendFitsInColumn );
     }
 
     public void testLegendFitsInColumnFitsNotInWidth()
                             throws Exception {
         BufferedImage legendImage = createBufferedImage( 35, 60 );
-        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 100 ), legendImage );
+        boolean legendFitsInColumn = legendComponent.legendFitsInColumn( createLegendMetadata( 100, 100 ), legendImage,
+                                                                         30 );
         assertFalse( legendFitsInColumn );
     }
 
@@ -382,17 +390,17 @@ public class LegendImageWriterTest extends TestCase {
                                    "Die Legende des Themas %s ist zu groß für den PDF-Druck und wird nicht angezeigt." );
     }
 
-    private List<String[]> createLegends( String[]... legendsToAdd ) {
-        List<String[]> legends = new ArrayList<String[]>();
-        for ( String[] legendToAdd : legendsToAdd ) {
+    private List<Pair<String, URL>> createLegends( Pair<String, URL>... legendsToAdd ) {
+        List<Pair<String, URL>> legends = new ArrayList<Pair<String, URL>>();
+        for ( Pair<String, URL> legendToAdd : legendsToAdd ) {
             legends.add( legendToAdd );
         }
         return legends;
     }
 
-    private String[] createLegend( String name, int childWidth, int childHeight ) {
+    private Pair<String, URL> createLegend( String name, int childWidth, int childHeight ) {
         URL legendUrl = loadImage( childWidth, childHeight );
-        return new String[] { name, legendUrl.toExternalForm() };
+        return new Pair<String, URL>( name, legendUrl );
     }
 
     private URL loadImage( int childWidth, int childHeight ) {
