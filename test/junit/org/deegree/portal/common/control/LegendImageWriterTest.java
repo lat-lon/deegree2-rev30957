@@ -151,6 +151,7 @@ import org.deegree.portal.common.control.LegendImageWriter.LegendImage;
  * 
  * @version $Revision: $, $Date: $
  */
+@SuppressWarnings("unchecked")
 public class LegendImageWriterTest extends TestCase {
 
     private static final int SPACING = 5;
@@ -208,7 +209,7 @@ public class LegendImageWriterTest extends TestCase {
 
         LegendImage childThreeOnPageOne = findChildByName( childsOnPageOne, "test3" );
         assertEquals( 0 + 30 + SPACING, childThreeOnPageOne.getX() );
-        assertEquals( 0 + 20, childThreeOnPageOne.getY() );
+        assertEquals( 0 + 20 + SPACING, childThreeOnPageOne.getY() );
         assertEquals( 13, childThreeOnPageOne.getWidth() );
         assertEquals( 23, childThreeOnPageOne.getHeight() );
 

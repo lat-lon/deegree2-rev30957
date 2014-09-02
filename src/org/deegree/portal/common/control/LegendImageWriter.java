@@ -145,6 +145,8 @@ public class LegendImageWriter {
 
         List<LegendImage> currentPageLegends = new ArrayList<LegendImage>();
         for ( LegendImage singleLegendImage : createLegendImages( legendMetadata, legends ) ) {
+            if ( currentHeight != startHeight )
+                currentHeight += spacing;
             int childWidth = singleLegendImage.getOriginalWidth();
             int childHeight = singleLegendImage.getOriginalHeight();
 
