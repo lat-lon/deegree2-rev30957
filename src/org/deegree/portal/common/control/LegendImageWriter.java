@@ -118,7 +118,8 @@ public class LegendImageWriter {
                                                   BufferedImage.TYPE_INT_ARGB );
             Graphics g = createGraphics( legendMetadata.getLegendBgColor(), bi );
             for ( LegendImage legendImage : legendPage ) {
-                LOG.logInfo( "Draw image " + legendImage.getX() + "/" + legendImage.y );
+                LOG.logInfo( "Draw image " + legendImage.getX() + "/" + legendImage.y + ": " + legendImage.width + "/"
+                             + legendImage.height );
                 g.drawImage( legendImage.legendImage, legendImage.getX(), legendImage.y, legendImage.width,
                              legendImage.height, null );
             }
