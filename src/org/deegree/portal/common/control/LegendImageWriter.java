@@ -28,6 +28,7 @@ import javax.servlet.ServletContext;
 import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
 import org.deegree.framework.util.ImageUtils;
+import org.deegree.framework.util.Pair;
 import org.deegree.framework.util.StringTools;
 
 public class LegendImageWriter {
@@ -52,7 +53,8 @@ public class LegendImageWriter {
      * @param legends
      * @return filename of image file
      */
-    public Map<String, String> accessLegend( ServletContext sc, LegendMetadata legendMetadata, List<String[]> legends )
+    public Map<String, String> accessLegend( ServletContext sc, LegendMetadata legendMetadata,
+                                             List<Pair<String, URL>> legends )
                             throws IOException {
         if ( legendMetadata.isDynamicLegend() )
             return createMultipleLegends( sc, legendMetadata, legends );
@@ -62,7 +64,7 @@ public class LegendImageWriter {
     }
 
     private Map<String, String> createSingleLegendPage( ServletContext sc, LegendMetadata legendMetadata,
-                                                        List<String[]> legends )
+                                                        List<Pair<String, URL>> legends )
                             throws IOException {
         int height = legendMetadata.getHeight();
         int width = legendMetadata.getWidth();
@@ -76,22 +78,24 @@ public class LegendImageWriter {
                     LOG.logWarning( "The necessary legend size is larger than the available legend space." );
                 }
             }
-            String[] s = legends.get( i );
-            if ( s[1] != null ) {
-                LOG.logDebug( "reading legend: " + s[1] );
+            Pair<String, URL> s = legends.get( i );
+            URL url = s.second;
+            String str = s.first;
+            if ( url != null ) {
+                LOG.logDebug( "reading legend: " + url );
                 Image img = createLegendImage( s );
                 if ( img != null ) {
                     if ( img.getWidth( null ) < 50 ) {
                         // it is assumed that no label is assigned
                         g.drawImage( img, 0, k, null );
-                        g.drawString( s[0], img.getWidth( null ) + 10, k + img.getHeight( null ) / 2 );
+                        g.drawString( str, img.getWidth( null ) + 10, k + img.getHeight( null ) / 2 );
                     } else {
                         g.drawImage( img, 0, k, null );
                     }
                     k = k + img.getHeight( null ) + 10;
                 }
             } else {
-                g.drawString( "- " + s[0], 0, k + 10 );
+                g.drawString( "- " + str, 0, k + 10 );
                 k = k + 20;
             }
         }
@@ -102,7 +106,7 @@ public class LegendImageWriter {
     }
 
     private Map<String, String> createMultipleLegends( ServletContext sc, LegendMetadata legendMetadata,
-                                                       List<String[]> legends )
+                                                       List<Pair<String, URL>> legends )
                             throws IOException {
         Map<String, String> parameterName2LegendUrl = new HashMap<String, String>();
         List<List<LegendImage>> legendPages = createLegendPages( legendMetadata, legends );
@@ -124,7 +128,7 @@ public class LegendImageWriter {
         return parameterName2LegendUrl;
     }
 
-    List<List<LegendImage>> createLegendPages( LegendMetadata legendMetadata, List<String[]> legends )
+    List<List<LegendImage>> createLegendPages( LegendMetadata legendMetadata, List<Pair<String, URL>> legends )
                             throws IOException {
         List<List<LegendImage>> allPageChilds = new ArrayList<List<LegendImage>>();
 
@@ -190,12 +194,12 @@ public class LegendImageWriter {
         return g;
     }
 
-    private List<LegendImage> createLegendImages( LegendMetadata legendMetadata, List<String[]> legends )
+    private List<LegendImage> createLegendImages( LegendMetadata legendMetadata, List<Pair<String, URL>> legends )
                             throws IOException {
         List<LegendImage> legendImages = new ArrayList<LegendImageWriter.LegendImage>();
         LOG.logInfo( "Legends: " );
-        for ( String[] legend : legends ) {
-            LOG.logInfo( "  " + legend[0] + ": " + legend[1] );
+        for ( Pair<String, URL> legend : legends ) {
+            LOG.logInfo( "  " + legend.first + ": " + legend.second );
             LegendImage legendImage = createLegendImageWithExtent( legendMetadata, legend );
             if ( legendImage != null )
                 legendImages.add( legendImage );
@@ -203,14 +207,14 @@ public class LegendImageWriter {
         return legendImages;
     }
 
-    private LegendImage createLegendImageWithExtent( LegendMetadata legendMetadata, String[] legend )
+    private LegendImage createLegendImageWithExtent( LegendMetadata legendMetadata, Pair<String, URL> legend )
                             throws IOException {
         float columnWidth = calculateColumnWidth( legendMetadata );
         BufferedImage legendImage = createLegendImage( legend, legendMetadata, (int) columnWidth );
         if ( legendImage != null ) {
             if ( !legendFitsInColumn( legendMetadata, legendImage, columnWidth ) )
-                legendImage = createLegendImageDoesNotFit( legendMetadata, legend[0] );
-            return new LegendImage( legend[0], legendImage );
+                legendImage = createLegendImageDoesNotFit( legendMetadata, legend.first );
+            return new LegendImage( legend.first, legendImage );
         }
         return null;
     }
@@ -281,12 +285,13 @@ public class LegendImageWriter {
         return attributedString;
     }
 
-    private BufferedImage createLegendImage( String[] s )
+    private BufferedImage createLegendImage( Pair<String, URL> s )
                             throws IOException {
+        URL url = s.second;
         try {
-            return ImageUtils.loadImage( new URL( s[1] ) );
+            return ImageUtils.loadImage( url );
         } catch ( Exception e ) {
-            LOG.logDebug( "Exception for Layer: " + s[0] + " - " + s[1] + ": " + e.getLocalizedMessage() );
+            LOG.logDebug( "Exception for Layer: " + s.first + " - " + url + ": " + e.getLocalizedMessage() );
             if ( missingLegendUrl != null ) {
                 File missingImage = new File( missingLegendUrl );
                 if ( missingImage.exists() ) {
@@ -297,13 +302,15 @@ public class LegendImageWriter {
         return null;
     }
 
-    private BufferedImage createLegendImage( String[] s, LegendMetadata legendMetadata, int columnWidth )
+    private BufferedImage createLegendImage( Pair<String, URL> legend, LegendMetadata legendMetadata, int columnWidth )
                             throws IOException {
+        URL url = legend.second;
         try {
-            return ImageUtils.loadImage( new URL( s[1] ) );
+            return ImageUtils.loadImage( url );
         } catch ( Exception e ) {
-            LOG.logDebug( "Exception for Layer: " + s[0] + " - " + s[1] + ": " + e.getLocalizedMessage() );
-            return createMissingLegendImage( s[0], legendMetadata, columnWidth );
+            String name = legend.first;
+            LOG.logDebug( "Exception for Layer: " + name + " - " + url + ": " + e.getLocalizedMessage() );
+            return createMissingLegendImage( name, legendMetadata, columnWidth );
         }
     }
 

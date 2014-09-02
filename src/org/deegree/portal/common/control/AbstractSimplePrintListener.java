@@ -340,7 +340,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         LegendImageWriter legendImageWriter = new LegendImageWriter( missingImageUrl, tempDir );
 
         ServletContext sc = ( (HttpServletRequest) this.getRequest() ).getSession( true ).getServletContext();
-        List<String[]> legendURLs = createLegendURLs( vc, scaleDenominator );
+        List<Pair<String, URL>> legendURLs = createLegendURLs( vc, scaleDenominator );
         return legendImageWriter.accessLegend( sc, legendMetadata, legendURLs );
     }
 
@@ -568,16 +568,16 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * @return legend access URLs for all visible layers of the passed view context. If a visible layer does not define
      *         a LegendURL
      */
-    private List<String[]> createLegendURLs( ViewContext vc, double scaleDenominator ) {
+    private List<Pair<String, URL>> createLegendURLs( ViewContext vc, double scaleDenominator ) {
         double scale = calculateScaleHint( scaleDenominator );
-        List<String[]> list = new ArrayList<String[]>();
+        List<Pair<String, URL>> list = new ArrayList<Pair<String, URL>>();
         MapModel mapModel = vc.getGeneral().getExtension().getMapModel();
         List<MapModelEntry> mapModelEntries = mapModel.getMapModelEntries();
         addLegendUrls( vc, scale, list, mapModelEntries );
         return list;
     }
 
-    private void addLegendUrls( ViewContext vc, double scale, List<String[]> list, List<MapModelEntry> mapModelEntries ) {
+    private void addLegendUrls( ViewContext vc, double scale, List<Pair<String, URL>> list, List<MapModelEntry> mapModelEntries ) {
         for ( MapModelEntry mapModelEntry : mapModelEntries ) {
             if ( mapModelEntry instanceof LayerGroup ) {
                 LayerGroup group = (LayerGroup) mapModelEntry;
@@ -588,7 +588,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         }
     }
 
-    private void addLegendUrl( ViewContext vc, double scale, List<String[]> list, MapModelEntry mapModelEntry ) {
+    private void addLegendUrl( ViewContext vc, double scale, List<Pair<String, URL>> list, MapModelEntry mapModelEntry ) {
         MMLayer layerM = (MMLayer) mapModelEntry;
         String identifier = layerM.getIdentifier();
         Layer layer = findLayerWithIdentifier( vc, identifier );
@@ -598,12 +598,11 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         }
         if ( !layer.isHidden() && layerIsInScale( scale, layer ) ) {
             Style style = layer.getStyleList().getCurrentStyle();
-            String[] s = new String[2];
-            s[0] = layer.getTitle();
+            URL url = null;
             if ( style.getLegendURL() != null ) {
-                s[1] = style.getLegendURL().getOnlineResource().toExternalForm();
+                url  = style.getLegendURL().getOnlineResource();
             }
-            list.add( s );
+            list.add( new Pair<String, URL>( layer.getTitle(), url ) );
         }
     }
 
