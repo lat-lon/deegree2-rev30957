@@ -58,6 +58,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.UUID;
 
 import javax.servlet.ServletContext;
@@ -577,7 +579,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         return list;
     }
 
-    private void addLegendUrls( ViewContext vc, double scale, List<Pair<String, URL>> list, List<MapModelEntry> mapModelEntries ) {
+    private void addLegendUrls( ViewContext vc, double scale, List<Pair<String, URL>> list,
+                                List<MapModelEntry> mapModelEntries ) {
         for ( MapModelEntry mapModelEntry : mapModelEntries ) {
             if ( mapModelEntry instanceof LayerGroup ) {
                 LayerGroup group = (LayerGroup) mapModelEntry;
@@ -600,7 +603,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
             Style style = layer.getStyleList().getCurrentStyle();
             URL url = null;
             if ( style.getLegendURL() != null ) {
-                url  = style.getLegendURL().getOnlineResource();
+                url = style.getLegendURL().getOnlineResource();
             }
             list.add( new Pair<String, URL>( layer.getTitle(), url ) );
         }
@@ -689,7 +692,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
                                                                             nsc );
             Node legendBandParentNode = templateLegendBandElement.getParentNode();
 
-            for ( String legendParameterName : parameterName2Legends.keySet() ) {
+            SortedSet<String> sortedLegendParameters = new TreeSet<String>( parameterName2Legends.keySet() );
+            for ( String legendParameterName : sortedLegendParameters ) {
                 manipulateParameter( templateParamElement, paramParentNode, legendParameterName );
                 manipulateBand( templateLegendBandElement, legendBandParentNode, legendParameterName );
             }
