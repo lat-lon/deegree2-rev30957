@@ -331,10 +331,11 @@ public class LegendImageWriter {
         int spacing = legendMetadata.getSpacing();
         int calculatedHeight = calculateHeight( layerName, columnWidth );
 
-        int height = missingImg.getHeight() + spacing + calculatedHeight + spacing;
+        int spacingBetweenImgAndText = 3;
+        int height = spacing + missingImg.getHeight() + spacingBetweenImgAndText + calculatedHeight + spacing;
         BufferedImage missingLegend = new BufferedImage( columnWidth, height, BufferedImage.TYPE_INT_ARGB );
         Graphics2D g = createGraphics( legendMetadata.getLegendBgColor(), missingLegend );
-        g.drawImage( missingImg, 0, 0, missingImg.getWidth(), missingImg.getHeight(), null );
+        g.drawImage( missingImg, 0, spacing, missingImg.getWidth(), missingImg.getHeight(), null );
         g.setColor( Color.RED );
 
         AttributedString attributedString = createAttributedString( layerName );
@@ -346,7 +347,7 @@ public class LegendImageWriter {
         LineBreakMeasurer lineMeasurer = new LineBreakMeasurer( paragraph, frc );
 
         float breakWidth = columnWidth - spacing;
-        float drawPosY = missingImg.getHeight() + spacing;
+        float drawPosY = spacing + missingImg.getHeight() + spacingBetweenImgAndText;
         lineMeasurer.setPosition( paragraphStart );
 
         while ( lineMeasurer.getPosition() < paragraphEnd ) {
