@@ -218,7 +218,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
 
         BufferedImage scaleBar = null;
         if ( scaleBarBize.first > 0 ) {
-            scaleBar = createScaleBar( rpc, getMap, scaleBarBize, printMetadata );
+            scaleBar = createScaleBar( rpc, getMap, scaleBarBize, widthDpi, heightDpi );
         }
 
         String format = (String) parameters[0].getValue();
@@ -392,9 +392,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
     }
 
     private BufferedImage createScaleBar( RPCWebEvent rpc, List<String> list, Pair<Integer, Integer> scaleBarBize,
-                                          PrintMetadata printMetadata ) {
-        int w = printMetadata.getMapWidth();
-        int h = printMetadata.getMapHeight();
+                                          int width, int height ) {
         RPCStruct struct = (RPCStruct) rpc.getRPCMethodCall().getParameters()[1].getValue();
         Integer dpi = null;
         if ( struct.getMember( "DPI" ) != null ) {
@@ -407,8 +405,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         int sbh = (int) Math.round( scaleBarBize.second * ( dpi / 72d ) );
         BufferedImage img = new BufferedImage( sbw, sbh, BufferedImage.TYPE_INT_ARGB );
         int fontSize = sbw / 100 + 6;
-        MapUtils.drawScalbar( (Graphics2D) img.getGraphics(), img.getWidth(), bbox, new Dimension( w, h ), null,
-                              fontSize );
+        MapUtils.drawScalbar( (Graphics2D) img.getGraphics(), img.getWidth(), bbox, new Dimension( width, height ),
+                              null, fontSize );
         return img;
     }
 
@@ -773,7 +771,7 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
 
     private String parseAsString( String paramName, String defaultValue ) {
         String initParameter = getInitParameter( paramName );
-        if ( initParameter != null ){
+        if ( initParameter != null ) {
             return initParameter;
         }
         return defaultValue;
