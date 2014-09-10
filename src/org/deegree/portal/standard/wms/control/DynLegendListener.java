@@ -210,6 +210,13 @@ public class DynLegendListener extends AbstractMapListener {
     }
 
     /**
+     * Clears the cache with legend symbols
+     */
+    public static void clearCache() {
+        legendSymCache.clear();
+    }
+
+    /**
      * Reads the initParams from the controller.xml and assigns them to the global variables
      * 
      * @throws IOException
@@ -782,5 +789,5 @@ public class DynLegendListener extends AbstractMapListener {
             }
         return null;
     }
-    
+
 }
