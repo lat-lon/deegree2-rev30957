@@ -543,7 +543,7 @@ public class DynLegendListener extends AbstractMapListener {
                         // (If current WMC does not offer a layer named like the passed name, the layer
                         // may have been added dynamically => see second attempt further below.)
                         LOG.logDebug( "legendURL for layer", layer, " from ", addr );
-                        Layer lay = ll.getLayer( layer, addr );
+                        Layer lay = ll.getLayer( layer, asUrl( addr ) );
                         if ( lay == null ) {
                             LOG.logWarning( "layer '" + layer + "' not found in layer list" );
                         }
@@ -772,4 +772,15 @@ public class DynLegendListener extends AbstractMapListener {
         }
         return capa;
     }
+
+    private URL asUrl( String addr ) {
+        if ( addr != null )
+            try {
+                return new URL( addr );
+            } catch ( Exception e ) {
+                LOG.logInfo( "legend address is not a url" );
+            }
+        return null;
+    }
+    
 }
