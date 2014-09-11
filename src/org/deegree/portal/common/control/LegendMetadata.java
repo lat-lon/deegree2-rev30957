@@ -61,8 +61,12 @@ public class LegendMetadata {
 
     private final int spacing;
 
+    private final String fontFamily;
+
+    private final float fontSize;
+    
     public LegendMetadata( boolean isDynamicLegend, int legendWidth, int legendHeight, String legendBgColor,
-                           int columns, int spacing, int maxSizeToFitInPercent, String toLargeMsg ) {
+                           int columns, int spacing, int maxSizeToFitInPercent, String toLargeMsg, String fontFamily, float fontSize) {
         this.isDynamicLegend = isDynamicLegend;
         this.legendWidth = legendWidth;
         this.legendHeight = legendHeight;
@@ -71,6 +75,8 @@ public class LegendMetadata {
         this.spacing = spacing;
         this.maxSizeToFitInPercent = maxSizeToFitInPercent;
         this.toLargeMsg = toLargeMsg;
+        this.fontFamily = fontFamily;
+        this.fontSize = fontSize;
 
     }
 
@@ -104,6 +110,14 @@ public class LegendMetadata {
 
     public String getToLargeMsg() {
         return toLargeMsg;
+    }
+
+    public String getFontFamily() {
+        return fontFamily;
+    }
+
+    public float getFontSize() {
+        return fontSize;
     }
 
 }
