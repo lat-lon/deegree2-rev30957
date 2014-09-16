@@ -66,6 +66,7 @@ import org.deegree.portal.Constants;
 import org.deegree.portal.context.ViewContext;
 import org.deegree.portal.context.WebMapContextFactory;
 import org.deegree.portal.context.XMLFactory;
+import org.deegree.portal.standard.wms.control.DynLegendListener;
 import org.w3c.dom.Node;
 
 /**
@@ -173,6 +174,7 @@ public class ContextSwitchListener extends AbstractContextListener {
         }
 
         getRequest().setAttribute( "SESSIONID", sid );
+        DynLegendListener.clearCache();
     }
 
     /**
