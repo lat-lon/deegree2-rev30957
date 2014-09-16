@@ -161,7 +161,8 @@ public class ContextSwitchListener extends AbstractContextListener {
             gotoErrorPage( StringTools.stackTraceToString( e ) );
             return;
         }
-
+        newHtml = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">"
+                  + newHtml;
         session.setAttribute( NEW_CONTEXT_HTML, newHtml );
 
         // need to keep a reference to the last context...
