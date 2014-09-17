@@ -16,10 +16,9 @@ import java.net.URL;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.Hashtable;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import javax.imageio.ImageIO;
@@ -53,8 +52,8 @@ public class LegendImageWriter {
      * @param legends
      * @return filename of image file
      */
-    public Map<String, String> accessLegend( ServletContext sc, LegendMetadata legendMetadata,
-                                             List<Pair<String, URL>> legends )
+    public List<List<PreparedLegendInfo>> accessLegend( ServletContext sc, LegendMetadata legendMetadata,
+                                                        List<Pair<String, URL>> legends )
                             throws IOException {
         if ( legendMetadata.isDynamicLegend() )
             return createMultipleLegends( sc, legendMetadata, legends );
@@ -63,8 +62,8 @@ public class LegendImageWriter {
 
     }
 
-    private Map<String, String> createSingleLegendPage( ServletContext sc, LegendMetadata legendMetadata,
-                                                        List<Pair<String, URL>> legends )
+    private List<List<PreparedLegendInfo>> createSingleLegendPage( ServletContext sc, LegendMetadata legendMetadata,
+                                                                   List<Pair<String, URL>> legends )
                             throws IOException {
         int height = legendMetadata.getHeight();
         int width = legendMetadata.getWidth();
@@ -100,33 +99,40 @@ public class LegendImageWriter {
             }
         }
         g.dispose();
-        Map<String, String> parameterName2LegendUrl = new HashMap<String, String>();
-        parameterName2LegendUrl.put( "LEGEND", storeImage( sc, tempDir, bi ) );
-        return parameterName2LegendUrl;
+        List<PreparedLegendInfo> preparedLegendInfos = new ArrayList<PreparedLegendInfo>();
+        preparedLegendInfos.add( new PreparedLegendInfo( "LEGEND", storeImage( sc, tempDir, bi ) ) );
+        return Collections.singletonList( preparedLegendInfos );
     }
 
-    private Map<String, String> createMultipleLegends( ServletContext sc, LegendMetadata legendMetadata,
-                                                       List<Pair<String, URL>> legends )
+    private List<List<PreparedLegendInfo>> createMultipleLegends( ServletContext sc, LegendMetadata legendMetadata,
+                                                                  List<Pair<String, URL>> legends )
                             throws IOException {
-        Map<String, String> parameterName2LegendUrl = new HashMap<String, String>();
+        List<List<PreparedLegendInfo>> preparedLegendInfoPages = new ArrayList<List<PreparedLegendInfo>>();
         List<List<LegendImage>> legendPages = createLegendPages( legendMetadata, legends );
         LOG.logInfo( "Number of legend pages: " + legendPages.size() );
         int index = 0;
         for ( List<LegendImage> legendPage : legendPages ) {
-            LOG.logInfo( "Draw page " + legendMetadata.getWidth() + "/" + legendMetadata.getHeight() );
-            BufferedImage bi = new BufferedImage( legendMetadata.getWidth(), legendMetadata.getHeight(),
-                                                  BufferedImage.TYPE_INT_ARGB );
-            Graphics g = createGraphics( legendMetadata.getLegendBgColor(), bi );
+            List<PreparedLegendInfo> legendInfos = new ArrayList<PreparedLegendInfo>();
             for ( LegendImage legendImage : legendPage ) {
-                LOG.logInfo( "Draw image " + legendImage.getX() + "/" + legendImage.y + ": " + legendImage.width + "/"
-                             + legendImage.height );
-                g.drawImage( legendImage.legendImage, legendImage.getX(), legendImage.y, legendImage.width,
-                             legendImage.height, null );
+                BufferedImage img = createImage( legendMetadata, legendImage );
+                String storedLegendImage = storeImage( sc, tempDir, img );
+                String legendId = "LEGEND" + index++;
+                legendInfos.add( new PreparedLegendInfo( legendId, storedLegendImage, legendImage.getX(),
+                                                         legendImage.getY(), legendImage.getWidth(),
+                                                         legendImage.getHeight() ) );
             }
-            g.dispose();
-            parameterName2LegendUrl.put( "LEGEND" + index++, storeImage( sc, tempDir, bi ) );
+            preparedLegendInfoPages.add( legendInfos );
         }
-        return parameterName2LegendUrl;
+        return preparedLegendInfoPages;
+    }
+
+    private BufferedImage createImage( LegendMetadata legendMetadata, LegendImage legendImage ) {
+        BufferedImage bi = new BufferedImage( legendImage.getOriginalWidth(), legendImage.getOriginalHeight(),
+                                              BufferedImage.TYPE_INT_ARGB );
+        Graphics g = createGraphics( legendMetadata.getLegendBgColor(), bi );
+        g.drawImage( legendImage.legendImage, 0, 0, null );
+        g.dispose();
+        return bi;
     }
 
     List<List<LegendImage>> createLegendPages( LegendMetadata legendMetadata, List<Pair<String, URL>> legends )
@@ -502,6 +508,11 @@ public class LegendImageWriter {
         public String getName() {
             return name;
         }
+
+        public BufferedImage getLegendImage() {
+            return legendImage;
+        }
+
     }
 
 }
