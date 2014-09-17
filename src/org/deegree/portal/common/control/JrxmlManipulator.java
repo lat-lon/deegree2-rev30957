@@ -4,9 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.List;
-import java.util.Map;
-import java.util.SortedSet;
-import java.util.TreeSet;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -39,11 +36,50 @@ public class JrxmlManipulator {
     private static final NamespaceContext nsc = CommonNamespaces.getNamespaceContext();
 
     XMLFragment manipulateJrxml( PrintMetadata printMetadata, String path, ViewContext vc,
-                                 Map<String, String> parameterName2Legends )
+                                 List<List<PreparedLegendInfo>> parameterName2Legends )
                             throws MalformedURLException, IOException, SAXException, XMLParsingException, Exception {
         File file = new File( path );
         XMLFragment xml = new XMLFragment( file );
 
+        manipulateLayerList( printMetadata, vc, xml );
+        manipulateLegends( parameterName2Legends, xml );
+        return xml;
+    }
+
+    private void manipulateLegends( List<List<PreparedLegendInfo>> preparedLegendInfoPages, XMLFragment xml )
+                            throws XMLParsingException {
+        if ( !preparedLegendInfoPages.isEmpty() ) {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setValidating( true );
+            factory.setExpandEntityReferences( false );
+
+            String xpathToParameter = "/jasper:jasperReport/jasper:parameter[./@name = 'LEGEND']";
+            Element templateParamElement = (Element) XMLTools.getNode( xml.getRootElement(), xpathToParameter, nsc );
+            Node paramParentNode = templateParamElement.getParentNode();
+
+            String xpathToLegendBand = "/jasper:jasperReport/jasper:detail/jasper:band[jasper:image/jasper:reportElement/@key = 'legendTemplateBand']";
+            Element templateLegendBandElement = (Element) XMLTools.getNode( xml.getRootElement(), xpathToLegendBand,
+                                                                            nsc );
+            Node legendBandParentNode = templateLegendBandElement.getParentNode();
+
+            for ( List<PreparedLegendInfo> page : preparedLegendInfoPages ) {
+                Element newLegendBand = addNewLegendPageBand( templateLegendBandElement, legendBandParentNode );
+                Element templateLegendImageElement = (Element) XMLTools.getNode( newLegendBand, "jasper:image", nsc );
+                for ( PreparedLegendInfo preparedLegendInfo : page ) {
+                    Element newLegendImageElement = addNewLegendImage( templateLegendImageElement, newLegendBand );
+                    manipulateLegendImage( newLegendImageElement, preparedLegendInfo );
+                    manipulateParameter( templateParamElement, paramParentNode, preparedLegendInfo.getLegendId() );
+                }
+                newLegendBand.removeChild( templateLegendImageElement );
+            }
+
+            paramParentNode.removeChild( templateParamElement );
+            legendBandParentNode.removeChild( templateLegendBandElement );
+        }
+    }
+
+    private void manipulateLayerList( PrintMetadata printMetadata, ViewContext vc, XMLFragment xml )
+                            throws XMLParsingException, Exception {
         // manipulate Jasper template DOM tree to add a list of all visible
         // layers and their parents
         String xpath = "jasper:detail/jasper:band/jasper:frame/jasper:reportElement[./@key = 'layerList']";
@@ -62,43 +98,38 @@ public class JrxmlManipulator {
             mapModel.walkLayerTree( new Visitor( element, textFields.get( 0 ), textFields.get( 1 ),
                                                  printMetadata.getLegendMetadata().getSpacing() ) );
         }
-        if ( !parameterName2Legends.isEmpty() ) {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setValidating( true );
-            factory.setExpandEntityReferences( false );
-
-            String xpathToParameter = "/jasper:jasperReport/jasper:parameter[./@name = 'LEGEND']";
-            Element templateParamElement = (Element) XMLTools.getNode( xml.getRootElement(), xpathToParameter, nsc );
-            Node paramParentNode = templateParamElement.getParentNode();
-
-            String xpathToLegendBand = "/jasper:jasperReport/jasper:detail/jasper:band[jasper:image/jasper:reportElement/@key = 'legendTemplateBand']";
-            Element templateLegendBandElement = (Element) XMLTools.getNode( xml.getRootElement(), xpathToLegendBand,
-                                                                            nsc );
-            Node legendBandParentNode = templateLegendBandElement.getParentNode();
-
-            SortedSet<String> sortedLegendParameters = new TreeSet<String>( parameterName2Legends.keySet() );
-            for ( String legendParameterName : sortedLegendParameters ) {
-                manipulateParameter( templateParamElement, paramParentNode, legendParameterName );
-                manipulateBand( templateLegendBandElement, legendBandParentNode, legendParameterName );
-            }
-            paramParentNode.removeChild( templateParamElement );
-            legendBandParentNode.removeChild( templateLegendBandElement );
-        }
-        return xml;
     }
 
-    private void manipulateBand( Element templateLegendBandElement, Node legendBandParentNode,
-                                 String legendParameterName )
+    private Element addNewLegendPageBand( Element templateLegendBandElement, Node legendBandParentNode )
                             throws XMLParsingException {
         Element clonedLegendBandElement = (Element) templateLegendBandElement.cloneNode( true );
-        String xpathToLegendBandParameter = "jasper:image/jasper:imageExpression";
-        Element imgExpressionElement = (Element) XMLTools.getNode( clonedLegendBandElement, xpathToLegendBandParameter,
+        legendBandParentNode.insertBefore( clonedLegendBandElement, templateLegendBandElement );
+        return clonedLegendBandElement;
+    }
+
+    private Element addNewLegendImage( Element templateNewLegendImage, Node legendImageParentNode )
+                            throws XMLParsingException {
+        Element clonedLegendBandElement = (Element) templateNewLegendImage.cloneNode( true );
+        legendImageParentNode.insertBefore( clonedLegendBandElement, templateNewLegendImage );
+        return clonedLegendBandElement;
+    }
+
+    private void manipulateLegendImage( Element newLegendImageElement, PreparedLegendInfo preparedLegendInfo )
+                            throws XMLParsingException {
+        String xpathToLegendBandParameter = "jasper:imageExpression";
+        Element imgExpressionElement = (Element) XMLTools.getNode( newLegendImageElement, xpathToLegendBandParameter,
                                                                    nsc );
         Document ownerDocument = imgExpressionElement.getOwnerDocument();
-        CDATASection newCData = ownerDocument.createCDATASection( "$P{" + legendParameterName + "}" );
+        CDATASection newCData = ownerDocument.createCDATASection( "$P{" + preparedLegendInfo.getLegendId() + "}" );
         Node oldCData = imgExpressionElement.getFirstChild();
         imgExpressionElement.replaceChild( newCData, oldCData );
-        legendBandParentNode.insertBefore( clonedLegendBandElement, templateLegendBandElement );
+
+        String xpathToReportElement = "jasper:reportElement";
+        Element reportElementElement = (Element) XMLTools.getNode( newLegendImageElement, xpathToReportElement, nsc );
+        reportElementElement.setAttribute( "x", Integer.toString( preparedLegendInfo.getPosX() ) );
+        reportElementElement.setAttribute( "y", Integer.toString( preparedLegendInfo.getPosY() ) );
+        reportElementElement.setAttribute( "width", Integer.toString( preparedLegendInfo.getWidth() ) );
+        reportElementElement.setAttribute( "height", Integer.toString( preparedLegendInfo.getHeight() ) );
     }
 
     private void manipulateParameter( Element templateParamElement, Node paramParentNode, String legendParameterName ) {

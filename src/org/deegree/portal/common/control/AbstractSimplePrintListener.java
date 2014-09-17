@@ -56,7 +56,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.UUID;
 
 import javax.servlet.ServletContext;
@@ -208,8 +207,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         List<String> getMap = createGetMapRequests( vc, rpc, bbox, widthDpi, heightDpi );
         String image = performGetMapRequests( getMap );
 
-        Map<String, String> parameterName2Legends = createLegendImages( printMetadata.getLegendMetadata(), vc,
-                                                                        scaleDenominator );
+        List<List<PreparedLegendInfo>> parameterName2Legends = createLegendImages( printMetadata.getLegendMetadata(),
+                                                                                   vc, scaleDenominator );
 
         BufferedImage scaleBar = null;
         if ( scaleBarBize.first > 0 ) {
@@ -224,8 +223,10 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
 
         Map<String, Object> parameter = new HashMap<String, Object>();
         parameter.put( "MAP", image );
-        for ( Entry<String, String> parameterName2Legend : parameterName2Legends.entrySet() ) {
-            parameter.put( parameterName2Legend.getKey(), parameterName2Legend.getValue() );
+        for ( List<PreparedLegendInfo> parameterName2Legend : parameterName2Legends ) {
+            for ( PreparedLegendInfo preparedLegendInfo : parameterName2Legend ) {
+                parameter.put( preparedLegendInfo.getLegendId(), preparedLegendInfo.getUrlToLegend() );
+            }
         }
         parameter.put( "SCALEBAR", scaleBar );
 
@@ -291,12 +292,14 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         }
     }
 
-    private void removeTmpFiles( String image, Map<String, String> legends ) {
+    private void removeTmpFiles( String image, List<List<PreparedLegendInfo>> parameterName2Legends ) {
         File file = new File( image );
         file.delete();
-        for ( Entry<String, String> legend : legends.entrySet() ) {
-            file = new File( legend.getValue() );
-            file.delete();
+        for ( List<PreparedLegendInfo> legend : parameterName2Legends ) {
+            for ( PreparedLegendInfo preparedLegendInfo : legend ) {
+                file = new File( preparedLegendInfo.getUrlToLegend() );
+                file.delete();
+            }
         }
     }
 
@@ -327,8 +330,8 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
      * @param legends
      * @return filename of image file
      */
-    private Map<String, String> createLegendImages( LegendMetadata legendMetadata, ViewContext vc,
-                                                    double scaleDenominator )
+    private List<List<PreparedLegendInfo>> createLegendImages( LegendMetadata legendMetadata, ViewContext vc,
+                                                               double scaleDenominator )
                             throws IOException {
         String missingImageUrl = null;
         if ( getInitParameter( "MISSING_IMAGE" ) != null )
