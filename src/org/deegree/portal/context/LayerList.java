@@ -2,9 +2,9 @@
 /*----------------------------------------------------------------------------
  This file is part of deegree, http://deegree.org/
  Copyright (C) 2001-2009 by:
-   Department of Geography, University of Bonn
+ Department of Geography, University of Bonn
  and
-   lat/lon GmbH
+ lat/lon GmbH
 
  This library is free software; you can redistribute it and/or modify it under
  the terms of the GNU Lesser General Public License as published by the Free
@@ -32,23 +32,24 @@
  http://www.geographie.uni-bonn.de/deegree/
 
  e-mail: info@deegree.org
-----------------------------------------------------------------------------*/
+ ----------------------------------------------------------------------------*/
 package org.deegree.portal.context;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
 /**
- *
- *
- *
+ * 
+ * 
+ * 
  * @version $Revision: 29966 $
  * @author <a href="mailto:poth@lat-lon.de">Andreas Poth</a>
  * @author last edited by: $Author: apoth $
- *
+ * 
  * @version 1.0. $Revision: 29966 $, $Date: 2011-03-09 15:19:04 +0100 (Mi, 09. Mär 2011) $
- *
+ * 
  * @since 2.0
  */
 public class LayerList {
@@ -59,22 +60,21 @@ public class LayerList {
 
     /**
      * Creates a new LayerList object.
-     *
+     * 
      * @param layers
      */
     public LayerList( Layer[] layers ) {
         setLayers( layers );
     }
 
-    
     /**
      * returns a layer identifies by its name and service address
-     *
+     * 
      * @param name
      *            name ofthe layer
      * @param serverAddress
      *            address of the server which servers the layer
-     *
+     * 
      * @return named layer
      */
     public Layer getLayer( String name, String serverAddress ) {
@@ -97,8 +97,36 @@ public class LayerList {
     }
 
     /**
+     * returns a layer identifies by its name and service address
+     * 
+     * @param name
+     *            name ofthe layer
+     * @param serverAddress
+     *            address of the server which servers the layer
+     * 
+     * @return named layer
+     */
+    public Layer getLayer( String name, URL serverAddress ) {
+        if ( serverAddress != null ) {
+            for ( Layer layer : list ) {
+                URL s = layer.getServer().getOnlineResource();
+                if ( layer.getName().equals( name ) && sameUrl( s, serverAddress ) ) {
+                    return layer;
+                }
+            }
+        } else {
+            for ( Layer layer : list ) {
+                if ( layer.getName().equals( name ) ) {
+                    return layer;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * returns all layers of the web map context
-     *
+     * 
      * @return array of layers
      */
     public Layer[] getLayers() {
@@ -108,7 +136,7 @@ public class LayerList {
 
     /**
      * sets all layers of the web map context
-     *
+     * 
      * @param layers
      */
     public void setLayers( Layer[] layers ) {
@@ -123,7 +151,7 @@ public class LayerList {
 
     /**
      * @param id
-     *
+     * 
      * @return the layers of a node of the tree of the web map context
      */
     public Layer[] getLayersByNodeId( int id ) {
@@ -141,7 +169,7 @@ public class LayerList {
 
     /**
      * TODO: review this changed; it has been introduced as of TreeLayerView Portlet
-     *
+     * 
      * @param root
      */
     public void orderLayerListByLayerTree( Node root ) {
@@ -153,7 +181,7 @@ public class LayerList {
     }
 
     /**
-     *
+     * 
      * @param nodes
      * @return list of layers
      */
@@ -172,7 +200,7 @@ public class LayerList {
     /**
      * adds one layer to the the web map context. If a layer with the same name as the passed layer already exits it
      * will be overwritten
-     *
+     * 
      * @param layer
      */
     public void addLayer( Layer layer ) {
@@ -182,22 +210,20 @@ public class LayerList {
     /**
      * adds one layer to the top of the web map context. If a layer with the same name as the passed layer already exits
      * it will be overwritten
-     *
+     * 
      * @param layer
      */
     public void addLayerToTop( Layer layer ) {
         list.add( 0, layer );
     }
 
-    
-
     /**
      * removes a layer identified by its name from the web map context
-     *
+     * 
      * @param name
      *            name of the layer to be removed
      * @param serverAddress
-     *
+     * 
      * @return removed layer
      */
     public Layer removeLayer( String name, String serverAddress ) {
@@ -208,7 +234,7 @@ public class LayerList {
 
     /**
      * moves a layer within the layer list up or down
-     *
+     * 
      * @param layer
      *            layer to be moved
      * @param up
@@ -239,12 +265,12 @@ public class LayerList {
 
     /**
      * moves a layer within the layer list before the beforeLayer
-     *
+     * 
      * @param layer
      *            layer to be moved
      * @param beforeLayer
      *            put the layer before this beforeLayer. If beforeLayer is <code>null</code> move to bottom.
-     *
+     * 
      */
     public void move( Layer layer, Layer beforeLayer ) {
         if ( beforeLayer != null ) { // move layer before beforeLayer
@@ -299,7 +325,7 @@ public class LayerList {
 
     /**
      * move all layers with parent <code>nodeID</code> befor the layers with parent <code>beforeNodeID</code>.
-     *
+     * 
      * @param nodeID
      * @param beforeNodeID
      */
@@ -344,7 +370,7 @@ public class LayerList {
 
     /**
      * remove all layer with <code>nodeID</code> as parent node
-     *
+     * 
      * @param nodeID
      */
     public void removeLayers( int nodeID ) {
@@ -355,6 +381,28 @@ public class LayerList {
             }
         }
         list = result;
+    }
+
+    protected boolean sameUrl( URL u1, URL u2 ) {
+        if ( u1 == null && u2 == null )
+            return true;
+        if ( ( u1 != null && u2 == null ) || ( u1 == null && u2 != null ) )
+            return false;
+
+        if ( !( ( u1.getProtocol() == u2.getProtocol() ) || ( u1.getProtocol() != null && u1.getProtocol().equalsIgnoreCase( u2.getProtocol() ) ) ) )
+            return false;
+
+        int port1 = ( u1.getPort() != -1 ) ? u1.getPort() : -1;
+        int port2 = ( u2.getPort() != -1 ) ? u2.getPort() : -1;
+        if ( port1 != port2 )
+            return false;
+
+        String host1 = u1.getHost();
+        String host2 = u2.getHost();
+        if ( !( ( host1 == null && host2 == null ) || ( host1 != null && host1.equalsIgnoreCase( host2 ) ) ) )
+            return false;
+
+        return true;
     }
 
 }
