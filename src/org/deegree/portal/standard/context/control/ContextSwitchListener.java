@@ -66,6 +66,7 @@ import org.deegree.portal.Constants;
 import org.deegree.portal.context.ViewContext;
 import org.deegree.portal.context.WebMapContextFactory;
 import org.deegree.portal.context.XMLFactory;
+import org.deegree.portal.standard.wms.control.DynLegendListener;
 import org.w3c.dom.Node;
 
 /**
@@ -160,7 +161,8 @@ public class ContextSwitchListener extends AbstractContextListener {
             gotoErrorPage( StringTools.stackTraceToString( e ) );
             return;
         }
-
+        newHtml = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">"
+                  + newHtml;
         session.setAttribute( NEW_CONTEXT_HTML, newHtml );
 
         // need to keep a reference to the last context...
@@ -173,6 +175,7 @@ public class ContextSwitchListener extends AbstractContextListener {
         }
 
         getRequest().setAttribute( "SESSIONID", sid );
+        DynLegendListener.clearCache();
     }
 
     /**

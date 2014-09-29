@@ -36,9 +36,9 @@
 package org.deegree.portal.standard.wms.control.layertree;
 
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.deegree.enterprise.control.ajax.AbstractListener;
 import org.deegree.enterprise.control.ajax.ResponseHandler;
@@ -108,7 +108,7 @@ public class MoveTreeNodeListener extends AbstractListener {
 
             // update WMC layer list
             LayerList layerList = vc.getLayerList();
-            final Map<String, Layer> id2layers = new HashMap<String, Layer>( layerList.getLayers().length );
+            final List<MMLayer> layers = new ArrayList<MMLayer>();
             try {
                 mapModel.walkLayerTree( new MapModelVisitor() {
 
@@ -119,23 +119,23 @@ public class MoveTreeNodeListener extends AbstractListener {
 
                     public void visit( MMLayer layer )
                                             throws Exception {
-                        id2layers.put( layer.getIdentifier(), layer.getLayer() );
+                        layers.add( layer );
                     }
                 } );
-                Layer[] layers = new Layer[id2layers.size()];
-                LayerBean[] beans = new LayerBean[id2layers.size()];
+                Layer[] layersForLayerList = new Layer[layers.size()];
+                LayerBean[] beans = new LayerBean[layers.size()];
                 int i = 0;
-                for ( Entry<String, Layer> id2layer : id2layers.entrySet() ) {
-                    String identifier = id2layer.getKey();
-                    Layer layer = id2layer.getValue();
+                for ( MMLayer mmLayer : layers ) {
+                    String identifier = mmLayer.getIdentifier();
+                    Layer layer = mmLayer.getLayer();
                     beans[i] = new LayerBean( layer.getServer().getTitle(), layer.getName(),
                                               layer.getServer().getService() + " " + layer.getServer().getVersion(),
                                               layer.getServer().getOnlineResource().toURI().toASCIIString(),
                                               layer.getFormatList().getCurrentFormat().getName(), identifier );
-                    layers[i] = layer;
+                    layersForLayerList[i] = layer;
                     i++;
                 }
-                layerList.setLayers( layers );
+                layerList.setLayers( layersForLayerList );
                 responseHandler.writeAndClose( false, beans );
             } catch ( Exception e ) {
                 LOG.logError( e );
