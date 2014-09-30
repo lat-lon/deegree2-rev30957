@@ -219,11 +219,14 @@ public class LegendImageWriter {
     private LegendImage createLegendImageWithExtent( LegendMetadata legendMetadata, Pair<String, URL> legend )
                             throws IOException {
         float columnWidth = calculateColumnWidth( legendMetadata );
-        BufferedImage legendImage = createLegendImage( legend, legendMetadata, (int) columnWidth );
-        if ( legendImage != null ) {
-            if ( !legendFitsInColumn( legendMetadata, legendImage, columnWidth ) )
-                legendImage = createLegendImageDoesNotFit( legendMetadata, legend.first );
-            return new LegendImage( legend.first, legendImage );
+        BufferedImage legendBufferedImage = createLegendImage( legend, legendMetadata, (int) columnWidth );
+        if ( legendBufferedImage != null ) {
+            if ( !legendFitsInColumn( legendMetadata, legendBufferedImage, columnWidth ) )
+                legendBufferedImage = createLegendImageDoesNotFit( legendMetadata, legend.first );
+            LegendImage legendImage = new LegendImage( legend.first, legendBufferedImage );
+            legendImage.width = legendBufferedImage.getWidth() / 2;
+            legendImage.height = legendBufferedImage.getHeight() / 2;
+            return legendImage;
         }
         return null;
     }
@@ -233,12 +236,14 @@ public class LegendImageWriter {
         String msg = String.format( legendMetadata.getToLargeMsg(), name );
         int spacing = legendMetadata.getSpacing();
 
-        int width = (int) calculateColumnWidth( legendMetadata );
-        int height = calculateHeight( legendMetadata, msg, width - spacing ) + 2 * spacing;
+        int width = 2 * ( (int) calculateColumnWidth( legendMetadata ) );
+        int height = 2 * ( calculateHeight( legendMetadata.getFontFamily(), legendMetadata.getFontSize() * 2, msg,
+                                            width - spacing ) + 2 * spacing );
         BufferedImage bi = new BufferedImage( width, height, BufferedImage.TYPE_INT_ARGB );
         Graphics2D g = createGraphics( legendMetadata.getLegendBgColor(), bi );
 
-        AttributedString attributedString = createAttributedString( legendMetadata, msg );
+        AttributedString attributedString = createAttributedString( legendMetadata.getFontFamily(),
+                                                                    legendMetadata.getFontSize() * 2, msg );
 
         AttributedCharacterIterator paragraph = attributedString.getIterator();
         int paragraphStart = paragraph.getBeginIndex();
@@ -261,10 +266,10 @@ public class LegendImageWriter {
         return bi;
     }
 
-    private int calculateHeight( LegendMetadata legendMetadata, String msg, int width ) {
+    private int calculateHeight( String fontFamily, float fontSize, String msg, int width ) {
         BufferedImage bi = new BufferedImage( width, 100, BufferedImage.TYPE_INT_ARGB );
         Graphics2D g = bi.createGraphics();
-        AttributedString attributedString = createAttributedString( legendMetadata, msg );
+        AttributedString attributedString = createAttributedString( fontFamily, fontSize, msg );
 
         AttributedCharacterIterator paragraph = attributedString.getIterator();
         int paragraphStart = paragraph.getBeginIndex();
@@ -286,10 +291,10 @@ public class LegendImageWriter {
         return (int) drawPosY;
     }
 
-    private AttributedString createAttributedString( LegendMetadata legendMetadata, String msg ) {
+    private AttributedString createAttributedString( String fontFamily, float fontSize, String msg ) {
         Hashtable<TextAttribute, Object> map = new Hashtable<TextAttribute, Object>();
-        map.put( TextAttribute.FAMILY, legendMetadata.getFontFamily() );
-        map.put( TextAttribute.SIZE, legendMetadata.getFontSize() );
+        map.put( TextAttribute.FAMILY, fontFamily );
+        map.put( TextAttribute.SIZE, fontSize );
         AttributedString attributedString = new AttributedString( msg, map );
         return attributedString;
     }
@@ -338,7 +343,8 @@ public class LegendImageWriter {
     private BufferedImage createMissingLegend( LegendMetadata legendMetadata, BufferedImage missingImg,
                                                String layerName, int columnWidth ) {
         int spacing = legendMetadata.getSpacing();
-        int calculatedHeight = calculateHeight( legendMetadata, layerName, columnWidth );
+        int calculatedHeight = calculateHeight( legendMetadata.getFontFamily(), legendMetadata.getFontSize(),
+                                                layerName, columnWidth );
 
         int spacingBetweenImgAndText = 3;
         int height = spacing + missingImg.getHeight() + spacingBetweenImgAndText + calculatedHeight + spacing;
@@ -347,7 +353,8 @@ public class LegendImageWriter {
         g.drawImage( missingImg, 0, spacing, missingImg.getWidth(), missingImg.getHeight(), null );
         g.setColor( Color.RED );
 
-        AttributedString attributedString = createAttributedString( legendMetadata, layerName );
+        AttributedString attributedString = createAttributedString( legendMetadata.getFontFamily(),
+                                                                    legendMetadata.getFontSize(), layerName );
 
         AttributedCharacterIterator paragraph = attributedString.getIterator();
         int paragraphStart = paragraph.getBeginIndex();
