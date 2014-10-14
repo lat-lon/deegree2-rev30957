@@ -126,8 +126,10 @@ public class JrxmlManipulator {
 
         String xpathToReportElement = "jasper:reportElement";
         Element reportElementElement = (Element) XMLTools.getNode( newLegendImageElement, xpathToReportElement, nsc );
-        reportElementElement.setAttribute( "x", Integer.toString( preparedLegendInfo.getPosX() ) );
-        reportElementElement.setAttribute( "y", Integer.toString( preparedLegendInfo.getPosY() ) );
+        int distanceFromLeft = Integer.parseInt( reportElementElement.getAttribute( "x" ) );
+        int distanceFromTop = Integer.parseInt( reportElementElement.getAttribute( "y" ) );
+        reportElementElement.setAttribute( "x", Integer.toString( preparedLegendInfo.getPosX() + distanceFromLeft ) );
+        reportElementElement.setAttribute( "y", Integer.toString( preparedLegendInfo.getPosY() + distanceFromTop ) );
         reportElementElement.setAttribute( "width", Integer.toString( preparedLegendInfo.getWidth() ) );
         reportElementElement.setAttribute( "height", Integer.toString( preparedLegendInfo.getHeight() ) );
     }

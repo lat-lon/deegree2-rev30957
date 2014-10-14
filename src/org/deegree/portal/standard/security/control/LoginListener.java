@@ -2,9 +2,9 @@
 /*----------------------------------------------------------------------------
  This file is part of deegree, http://deegree.org/
  Copyright (C) 2001-2009 by:
-   Department of Geography, University of Bonn
+ Department of Geography, University of Bonn
  and
-   lat/lon GmbH
+ lat/lon GmbH
 
  This library is free software; you can redistribute it and/or modify it under
  the terms of the GNU Lesser General Public License as published by the Free
@@ -32,15 +32,15 @@
  http://www.geographie.uni-bonn.de/deegree/
 
  e-mail: info@deegree.org
-----------------------------------------------------------------------------*/
+ ----------------------------------------------------------------------------*/
 package org.deegree.portal.standard.security.control;
 
 import java.io.IOException;
-import java.io.Reader;
-import java.io.StringReader;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
@@ -55,40 +55,31 @@ import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
 import org.deegree.framework.util.CharsetUtils;
 import org.deegree.framework.util.NetWorker;
-import org.deegree.framework.xml.NamespaceContext;
-import org.deegree.framework.xml.XMLParsingException;
-import org.deegree.framework.xml.XMLTools;
 import org.deegree.i18n.Messages;
 import org.deegree.ogcbase.BaseURL;
-import org.deegree.ogcbase.CommonNamespaces;
 import org.deegree.ogcwebservices.InvalidParameterValueException;
 import org.deegree.ogcwebservices.OWSUtils;
 import org.deegree.portal.Constants;
 import org.deegree.portal.context.GeneralExtension;
 import org.deegree.portal.context.ViewContext;
-import org.w3c.dom.Document;
-import org.xml.sax.SAXException;
 
 /**
  * Listener class for handling login to iGeoPortal standard edition
- *
+ * 
  * @author <a href="mailto:poth@lat-lon.de">Andreas Poth </a>
  * @author last edited by: $Author: mschneider $
- *
+ * 
  * @version $Revision: 18195 $, $Date: 2009-06-18 17:55:39 +0200 (Do, 18. Jun 2009) $
  */
 public class LoginListener extends AbstractListener {
 
     private static ILogger LOG = LoggerFactory.getLogger( LoginListener.class );
 
-    private static final NamespaceContext nsContext = CommonNamespaces.getNamespaceContext();
-
     /**
-     * performs a login request. the passed event contains a RPC method call containing user name
-     * and password.
-     *
+     * performs a login request. the passed event contains a RPC method call containing user name and password.
+     * 
      * @see org.deegree.enterprise.control.WebListener#actionPerformed(org.deegree.enterprise.control.FormEvent)
-     *
+     * 
      * @param event
      */
     @Override
@@ -105,22 +96,8 @@ public class LoginListener extends AbstractListener {
         String[] result = null;
         try {
             result = performLogin( re );
-        } catch ( InvalidParameterValueException ipve ) {
-            gotoErrorPage( ipve.toString() );
-            LOG.logDebug( ipve.getMessage(), ipve );
-            return;
-        } catch ( LoginFailureException lfe ) {
-            LOG.logDebug( lfe.getMessage(), lfe );
-            try {
-                handleLoginFailure( lfe.getMessage() );
-            } catch ( Exception e ) {
-                gotoErrorPage( e.toString() );
-                LOG.logDebug( e.getMessage(), e );
-                return;
-            }
-            return;
         } catch ( Exception e ) {
-            gotoErrorPage( e.toString() );
+            gotoErrorPage( e.getMessage() );
             LOG.logDebug( e.getMessage(), e );
             return;
         }
@@ -133,27 +110,8 @@ public class LoginListener extends AbstractListener {
     }
 
     /**
-     * handles the case if a login fails. extracts the message from the exception XML and pass it to
-     * the error page (error.jsp)
-     *
-     * @param messageXML
-     * @throws SAXException
-     * @throws XMLParsingException
-     * @throws IOException
-     */
-    private void handleLoginFailure( String messageXML )
-                            throws SAXException, XMLParsingException, IOException {
-        Reader reader = new StringReader( messageXML );
-        Document doc = XMLTools.parse( reader );
-        String message = XMLTools.getRequiredNodeAsString( doc.getDocumentElement(),
-                                                           "/ServiceExceptionReport/ServiceException", nsContext );
-        gotoErrorPage( message );
-    }
-
-    /**
-     * validates the passed event to be valid against the requirements of the listener (contains user
-     * name and password)
-     *
+     * validates the passed event to be valid against the requirements of the listener (contains user name and password)
+     * 
      * @param event
      * @return true if the request is valide
      */
@@ -181,10 +139,10 @@ public class LoginListener extends AbstractListener {
     }
 
     /**
-     * peforms a login by requesting a session ID from a WAAS like service (deegree SessionServlet).
-     * The returned session ID is assigned to a session at the WAAS like service to enable vice
-     * versa to identify the user through the ID.
-     *
+     * peforms a login by requesting a session ID from a WAAS like service (deegree SessionServlet). The returned
+     * session ID is assigned to a session at the WAAS like service to enable vice versa to identify the user through
+     * the ID.
+     * 
      * @param event
      * @return a string array containing session id [0] and user name [1], if login was successful
      * @throws InvalidParameterValueException
@@ -231,7 +189,16 @@ public class LoginListener extends AbstractListener {
         // </ServiceExceptionReport>
 
         if ( response.contains( "ServiceExceptionReport" ) ) {
-            throw new LoginFailureException( response );
+            LOG.logInfo( "Login failed: " + response );
+            String msg;
+            if ( isPasswordIncorrect( response ) ) {
+                msg = Messages.getMessage( "IGEO_STD_SEC_INVALID_PASSWORD" );
+            } else if ( isUsernameIncorrect( response ) ) {
+                msg = Messages.getMessage( "IGEO_STD_SEC_INVALID_USERNAME_NOARGUMENT" );
+            } else {
+                msg = Messages.getMessage( "IGEO_STD_SEC_SERVICEEXCEPTION" );
+            }
+            throw new LoginFailureException( msg );
         }
 
         // return session id and user name if login was successful
@@ -239,6 +206,16 @@ public class LoginListener extends AbstractListener {
         res[0] = response;
         res[1] = name;
         return res;
+    }
+
+    private static boolean isUsernameIncorrect( String response ) {
+        Pattern p = Pattern.compile( ".*Lookup of user '.*' failed! A user with this name does not exist.*" );
+        Matcher m = p.matcher( response );
+        return m.matches();
+    }
+
+    private boolean isPasswordIncorrect( String response ) {
+        return response.contains( "The submitted password is incorrect." );
     }
 
 }
