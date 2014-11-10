@@ -51,6 +51,7 @@ import org.deegree.enterprise.control.RPCWebEvent;
 import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
 import org.deegree.i18n.Messages;
+import org.deegree.portal.PortalException;
 
 /**
  * Listener to retrieve the (deegree managed) sessionID of a user.
@@ -87,6 +88,9 @@ public class GetSessionIDListener extends AbstractListener {
             HttpSession session = ( (HttpServletRequest) this.getRequest() ).getSession( true );
             getRequest().setAttribute( "SESSIONID", session.getAttribute( "SESSIONID" ) );
             getRequest().setAttribute( "STARTCONTEXT", getUsersStartContext( re ) );
+        } catch ( PortalException e ) {
+            gotoErrorPage( e.getMessage() );
+            LOG.logError( e.getMessage(), e );
         } catch ( IOException e ) {
             gotoErrorPage( Messages.getMessage( "IGEO_STD_SEC_ERROR_STARTCONTEXT" ) );
             LOG.logError( e.getMessage(), e );
@@ -120,9 +124,10 @@ public class GetSessionIDListener extends AbstractListener {
      * @param event
      * @return String
      * @throws IOException
+     * @throws PortalException 
      */
     private String getUsersStartContext( RPCWebEvent event )
-                            throws IOException {
+                            throws IOException, PortalException {
         RPCMethodCall mc = event.getRPCMethodCall();
         RPCStruct struct = (RPCStruct) mc.getParameters()[0].getValue();
         String userName = (String) struct.getMember( "user" ).getValue();
@@ -135,9 +140,7 @@ public class GetSessionIDListener extends AbstractListener {
         File file = new File( sb.toString() );
 
         if ( !file.exists() ) {
-            sb.delete( 0, sb.length() );
-            sb.append( getHomePath() ).append( userDir ).append( "context.properties" );
-            file = new File( sb.toString() );
+            throw new PortalException( Messages.getMessage( "IGEO_STD_SEC_USER_FOLDER_MISSING" ) );
         } else {
             dir.append( userName ).append( '/' );
         }
