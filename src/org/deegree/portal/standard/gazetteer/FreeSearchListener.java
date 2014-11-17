@@ -95,6 +95,7 @@ public class FreeSearchListener extends AbstractGazetteerListener {
             node = node.getChildNode();
             k++;
         }
+        LOG.logDebug( "Use HierarchyNode " + node );
         QualifiedName ft = node.getFeatureType();
         FindItemsCommand cmd = new FindItemsCommand( hierarchy.getGazetteerAddress(), ft, node.getProperties(),
                                                      searchString, true, node.isStricMode(), false, node.isMatchCase(),

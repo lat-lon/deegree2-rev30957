@@ -130,24 +130,24 @@ abstract class AbstractGazetteerCommand {
 
         GMLFeatureCollectionDocument gml = new GMLFeatureCollectionDocument();
         gml.load( is, wfs.toURI().toASCIIString() );
-        FeatureCollection fc = gml.parse();
-
-        return fc;
+        LOG.logDebug( "Response: " + gml.getAsPrettyString() );
+        return gml.parse();
     }
 
     protected void createItemsList( FeatureCollection fc )
                             throws PropertyPathResolvingException {
+        LOG.logDebug( "Collection contains " + fc.size() + " features" );
         items = new ArrayList<GazetteerItem>( fc.size() );
-        Iterator<Feature> iterator = fc.iterator();
         PropertyPath gi = createPropertyPath( properties.get( "GeographicIdentifier" ) );
         PropertyPath gai = parseAsPropertyPath( properties.get( "AlternativeGeographicIdentifier" ) );
         PropertyPath tooltip = parseAsPropertyPath( properties.get( "TooltipName" ) );
         PropertyPath disp = createPropertyPath( properties.get( "DisplayName" ) );
 
+        Iterator<Feature> iterator = fc.iterator();
         while ( iterator.hasNext() ) {
             Feature feature = (Feature) iterator.next();
             String gmlID = feature.getId();
-            LOG.logDebug( "Parse item with id {}", gmlID );
+            LOG.logDebug( "Parse item with id '" + gmlID + "'" );
             String geoId = parseProperty( gi, feature );
             if ( geoId == null )
                 throw new IllegalArgumentException( "GeographicIdentifier in feature must not be null!" );
@@ -269,7 +269,7 @@ abstract class AbstractGazetteerCommand {
 
     private String parseProperty( PropertyPath gi, Feature feature )
                             throws PropertyPathResolvingException {
-        LOG.logDebug( "Parse property {}", gi );
+        LOG.logDebug( "Parse property " + gi );
         FeatureProperty defaultProperty = feature.getDefaultProperty( gi );
         if ( defaultProperty == null ) {
             LOG.logWarning( "Property is null!" );
