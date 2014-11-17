@@ -147,8 +147,13 @@ abstract class AbstractGazetteerCommand {
         while ( iterator.hasNext() ) {
             Feature feature = (Feature) iterator.next();
             String gmlID = feature.getId();
-            String geoId = feature.getDefaultProperty( gi ).getValue().toString();
-            String displayName = (String) feature.getDefaultProperty( disp ).getValue();
+            LOG.logDebug( "Parse item with id {}", gmlID );
+            String geoId = parseProperty( gi, feature );
+            if ( geoId == null )
+                throw new IllegalArgumentException( "GeographicIdentifier in feature must not be null!" );
+            String displayName = parseProperty( disp, feature );
+            if ( displayName == null )
+                throw new IllegalArgumentException( "Display in feature must not be null!" );
             String altGeoId = parseAlternativeGeographicIdentifiers( feature, gai, tooltip );
             items.add( new GazetteerItem( gmlID, geoId, altGeoId, displayName ) );
         }
@@ -174,7 +179,7 @@ abstract class AbstractGazetteerCommand {
              && !tmp.equals( properties.get( "AlternativeGeographicIdentifier" ) ) ) {
             pathes.add( createPropertyPath( tmp ) );
         }
-        
+
         return pathes.toArray( new PropertyPath[pathes.size()] );
     }
 
@@ -260,6 +265,22 @@ abstract class AbstractGazetteerCommand {
             return alternativeIdentifier.toString();
         }
         return null;
+    }
+
+    private String parseProperty( PropertyPath gi, Feature feature )
+                            throws PropertyPathResolvingException {
+        LOG.logDebug( "Parse property {}", gi );
+        FeatureProperty defaultProperty = feature.getDefaultProperty( gi );
+        if ( defaultProperty == null ) {
+            LOG.logWarning( "Property is null!" );
+            return null;
+        }
+        Object value = defaultProperty.getValue();
+        if ( value == null ) {
+            LOG.logWarning( "Property value is null!" );
+            return null;
+        }
+        return value.toString();
     }
 
     private void appendPropertyValue( StringBuilder alternativeIdentifier, String propValue ) {
