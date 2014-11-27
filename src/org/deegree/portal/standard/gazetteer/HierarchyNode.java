@@ -152,4 +152,11 @@ public class HierarchyNode {
         return matchCase;
     }
 
+    @Override
+    public String toString() {
+        return "HierarchyNode [featureType=" + featureType + ", name=" + name + ", freeSearch=" + freeSearch
+               + ", childNode=" + childNode + ", properties=" + properties + ", stricMode=" + stricMode
+               + ", matchCase=" + matchCase + "]";
+    }
+
 }

@@ -45,6 +45,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -71,6 +72,7 @@ import org.deegree.enterprise.control.RPCStruct;
 import org.deegree.enterprise.control.RPCWebEvent;
 import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
+import org.deegree.framework.util.HttpUtils;
 import org.deegree.framework.util.IDGenerator;
 import org.deegree.framework.util.ImageUtils;
 import org.deegree.framework.util.StringTools;
@@ -142,6 +144,14 @@ public class DynLegendListener extends AbstractMapListener {
 
     private Properties passwords = new Properties();
 
+    protected static int timeout = 10000;
+
+    static {
+        if ( System.getProperty( "timeout" ) != null ) {
+            timeout = Integer.parseInt( System.getProperty( "timeout" ) );
+        }
+    }
+    
     /*
      * (non-Javadoc)
      * 
@@ -523,78 +533,80 @@ public class DynLegendListener extends AbstractMapListener {
                 }
                 LOG.logDebug( "caps ", addr );
                 WMSCapabilities capa = (WMSCapabilities) wmscache.get( addr );
-
-                st = new StringTokenizer( (String) model[i].get( "LAYERS" ), "," );
-                int k = 0;
-                while ( st.hasMoreTokens() ) {
-                    if ( styles == null || styles.length == 0 || styles[k] == null || styles[k].equals( "" ) ) {
-                        style = "default";
-                    } else {
-                        style = styles[k];
-                    }
-                    k++;
-
-                    String layer = st.nextToken();
-                    String title = layer;
-                    if ( capa.getLayer( layer ) != null ) {
-                        title = capa.getLayer( layer ).getTitle();
-                    }
-
-                    BufferedImage legendGraphic = null;
-                    String path = StringTools.concat( 200, addr, "%%", layer, "%%", style );
-                    if ( legendSymCache.get( path ) != null ) {
-                        legendGraphic = legendSymCache.get( path );
-                        LOG.logDebug( "read legendsymbol from cache for ", layer );
-                    } else {
-                        // first attempt to get legend image: access layer from WMC.
-                        // (If current WMC does not offer a layer named like the passed name, the layer
-                        // may have been added dynamically => see second attempt further below.)
-                        LOG.logDebug( "legendURL for layer", layer, " from ", addr );
-                        Layer lay = ll.getLayer( layer, asUrl( addr ) );
-                        if ( lay == null ) {
-                            LOG.logWarning( "layer '" + layer + "' not found in layer list" );
-                        }
-                        ImageURL imgUrl = null;
-                        URL url = null;
-                        if ( lay != null && lay.getStyleList() != null && lay.getStyleList().getStyle( style ) != null
-                             && ( imgUrl = lay.getStyleList().getStyle( style ).getLegendURL() ) != null ) {
-                            LOG.logDebug( "An image url could be fetched from WMC" );
-                            url = imgUrl.getOnlineResource();
+                if ( capa != null ) {
+                    st = new StringTokenizer( (String) model[i].get( "LAYERS" ), "," );
+                    int k = 0;
+                    while ( st.hasMoreTokens() ) {
+                        if ( styles == null || styles.length == 0 || styles[k] == null || styles[k].equals( "" ) ) {
+                            style = "default";
                         } else {
-                            LOG.logDebug( "No url found from WMC for layer ", layer );
+                            style = styles[k];
+                        }
+                        k++;
+
+                        String layer = st.nextToken();
+                        String title = layer;
+                        if ( capa.getLayer( layer ) != null ) {
+                            title = capa.getLayer( layer ).getTitle();
                         }
 
-                        lgHeight = lgHeight + 30;
-
-                        if ( url != null ) {
-                            LOG.logDebug( "URL is valid. Loading Legend Graphic..." );
-                            LOG.logDebug( "ImgUrl is: ", url.toExternalForm() );
-                            // TODO catch error from loadImage, but also log the error message.
-                            // error might occure, if configuration is wrong.
-                            // (trying to read from a not existing feature)
-                            try {
-                                legendGraphic = ImageUtils.loadImage( url );
-                            } catch ( Exception e ) {
-                                // nothing to do
+                        BufferedImage legendGraphic = null;
+                        String path = StringTools.concat( 200, addr, "%%", layer, "%%", style );
+                        if ( legendSymCache.get( path ) != null ) {
+                            legendGraphic = legendSymCache.get( path );
+                            LOG.logDebug( "read legendsymbol from cache for ", layer );
+                        } else {
+                            // first attempt to get legend image: access layer from WMC.
+                            // (If current WMC does not offer a layer named like the passed name, the layer
+                            // may have been added dynamically => see second attempt further below.)
+                            LOG.logDebug( "legendURL for layer", layer, " from ", addr );
+                            Layer lay = ll.getLayer( layer, asUrl( addr ) );
+                            if ( lay == null ) {
+                                LOG.logWarning( "layer '" + layer + "' not found in layer list" );
                             }
-                        }
+                            ImageURL imgUrl = null;
+                            URL url = null;
+                            if ( lay != null && lay.getStyleList() != null
+                                 && lay.getStyleList().getStyle( style ) != null
+                                 && ( imgUrl = lay.getStyleList().getStyle( style ).getLegendURL() ) != null ) {
+                                LOG.logDebug( "An image url could be fetched from WMC" );
+                                url = imgUrl.getOnlineResource();
+                            } else {
+                                LOG.logDebug( "No url found from WMC for layer ", layer );
+                            }
 
-                        // second attempt to get legend image: necessary if layer has been added dynamically.
-                        if ( legendGraphic == null ) {
-                            LOG.logDebug( "SECOND ATTEMPT for the legend image, because layer was not in WMC LayerList" );
-                            legendGraphic = createLegendSybmbol( (WMSCapabilities) wmscache.get( addr ), layer, style );
-                        }
+                            lgHeight = lgHeight + 30;
 
-                        // store legend in cache
-                        legendSymCache.put( path, legendGraphic );
+                            if ( url != null ) {
+                                LOG.logDebug( "URL is valid. Loading Legend Graphic..." );
+                                LOG.logDebug( "ImgUrl is: ", url.toExternalForm() );
+                                // TODO catch error from loadImage, but also log the error message.
+                                // error might occure, if configuration is wrong.
+                                // (trying to read from a not existing feature)
+                                try {
+                                    legendGraphic = ImageUtils.loadImage( url );
+                                } catch ( Exception e ) {
+                                    // nothing to do
+                                }
+                            }
+
+                            // second attempt to get legend image: necessary if layer has been added dynamically.
+                            if ( legendGraphic == null ) {
+                                LOG.logDebug( "SECOND ATTEMPT for the legend image, because layer was not in WMC LayerList" );
+                                legendGraphic = createLegendSybmbol( (WMSCapabilities) wmscache.get( addr ), layer,
+                                                                     style );
+                            }
+
+                            // store legend in cache
+                            legendSymCache.put( path, legendGraphic );
+                        }
+                        list1.add( layer );
+                        list2.add( legendGraphic );
+                        list3.add( title );
                     }
-                    list1.add( layer );
-                    list2.add( legendGraphic );
-                    list3.add( title );
                 }
             }
         }
-
         String[] layers = list1.toArray( new String[list1.size()] );
         BufferedImage[] legs = list2.toArray( new BufferedImage[list2.size()] );
         String[] titles = list3.toArray( new String[list3.size()] );
@@ -742,7 +754,8 @@ public class DynLegendListener extends AbstractMapListener {
             LOG.logError( "the passed url was not well formed.", e );
         }
 
-        httpclient.getHttpConnectionManager().getParams().setSoTimeout( 15000 );
+        httpclient.getHttpConnectionManager().getParams().setSoTimeout( timeout );
+        httpclient.getHttpConnectionManager().getParams().setConnectionTimeout( timeout );
         StringBuffer sb = new StringBuffer( 500 );
         sb.append( url );
         if ( url.indexOf( "?" ) < 0 ) {
@@ -775,7 +788,7 @@ public class DynLegendListener extends AbstractMapListener {
             WMSCapabilitiesDocument cdoc = WMSCapabilitiesDocumentFactory.getWMSCapabilitiesDocument( xml.getRootElement() );
             capa = (WMSCapabilities) cdoc.parseCapabilities();
         } catch ( Exception e ) {
-            LOG.logError( "GetCaps failed for " + sb.toString() );
+            LOG.logError( "GetCaps failed for " + sb.toString(), e );
         }
         return capa;
     }
@@ -790,4 +803,10 @@ public class DynLegendListener extends AbstractMapListener {
         return null;
     }
 
+    
+    public static void main( String[] args ) {
+        DynLegendListener dynLegendListener = new DynLegendListener();
+        dynLegendListener.wmscache.put( "http://geoportal.wuppertal.de:8083/deegree/wms?SESSIONID=ID241-0.21692365703386085&SERVICE=WMS&", "abs" );
+        System.out.println(dynLegendListener.wmscache.get( "http://geoportal.wuppertal.de:8083/deegree/wms?SESSIONID=ID241-0.21692365703386085&SERVICE=WMS&" ));
+    }
 }
