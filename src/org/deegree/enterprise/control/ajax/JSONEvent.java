@@ -40,8 +40,11 @@ package org.deegree.enterprise.control.ajax;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.net.URLDecoder;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletContext;
@@ -63,13 +66,13 @@ import org.stringtree.json.JSONReader;
  */
 public class JSONEvent extends WebEvent {
 
+    private static final String PARAMETER_DECODE = "parametersToDecodeAsUri";
+
     private static final long serialVersionUID = 6459849162427895987L;
 
     private static final ILogger LOG = LoggerFactory.getLogger( JSONEvent.class );
 
-    private Map<String, ?> json;
-    
-    
+    private Map<String, Object> json;
 
     /**
      * 
@@ -82,31 +85,26 @@ public class JSONEvent extends WebEvent {
         super( servletContext, request, null );
         JSONReader reader = new JSONReader();
         String string = null;
-        try {            
-            LOG.logDebug( "request character encoding: " + request.getCharacterEncoding() );
-            
-            InputStreamReader isr = null;
-            if ( request.getCharacterEncoding() != null ) {
-                isr = new InputStreamReader( request.getInputStream(), request.getCharacterEncoding() );
-            } else {
-                // always use UTF-8 because XMLHttpRequest normally uses this encoding
-                isr = new InputStreamReader( request.getInputStream(), "UTF-8" );
-            }
+        String characterEncoding = detectEncoding( request );
+        try {
+            InputStreamReader isr = new InputStreamReader( request.getInputStream(), characterEncoding );
+
             string = FileUtils.readTextFile( isr ).toString();
         } catch ( IOException e ) {
             LOG.logError( e.getMessage(), e );
             throw new ServletException( "can not parse json: " + json, e );
         }
-        json = (Map<String, ?>) reader.read( string );
-        LOG.logDebug( "request parameter: " +  json );
+        json = (Map<String, Object>) reader.read( string );
+        decodeParameters( characterEncoding );
+        LOG.logDebug( "request parameter: " + json );
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("rawtypes")
     @Override
     public Map getParameter() {
         return json;
     }
-    
+
     /**
      * 
      * @param bean
@@ -120,19 +118,49 @@ public class JSONEvent extends WebEvent {
                             throws Exception {
         Class<?> clzz = Class.forName( bean );
         Object bean = clzz.newInstance();
-        Method[] methods = clzz.getMethods();           
+        Method[] methods = clzz.getMethods();
         for ( Method method : methods ) {
-            if ( method.getName().startsWith( "set" ) ) {        
+            if ( method.getName().startsWith( "set" ) ) {
                 String var = method.getName().substring( 4, method.getName().length() );
                 var = method.getName().substring( 3, 4 ).toLowerCase() + var;
                 Object val = json.get( var );
-                Type type = method.getGenericParameterTypes()[0];                
+                Type type = method.getGenericParameterTypes()[0];
                 if ( val != null ) {
-                    method.invoke( bean, ((Class<?>)type).cast( val ) );
+                    method.invoke( bean, ( (Class<?>) type ).cast( val ) );
                 }
             }
         }
         return bean;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void decodeParameters( String characterEncoding ) {
+        if ( isInMap( PARAMETER_DECODE ) ) {
+            for ( String paramToDecode : (List<String>) json.get( PARAMETER_DECODE ) ) {
+                if ( isInMap( paramToDecode ) ) {
+                    try {
+                        String valueToDecode = (String) json.get( paramToDecode );
+                        String decodedValue = URLDecoder.decode( valueToDecode, characterEncoding );
+                        json.put( paramToDecode, decodedValue );
+                    } catch ( UnsupportedEncodingException e ) {
+                        LOG.logWarning( "Decoding failed: " + e.getMessage() );
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean isInMap( String key ) {
+        return json.containsKey( key ) && json.get( key ) != null;
+    }
+
+    private String detectEncoding( HttpServletRequest request ) {
+        String characterEncoding = request.getCharacterEncoding();
+        LOG.logDebug( "request character encoding: " + characterEncoding );
+        if ( characterEncoding != null )
+            return characterEncoding;
+        // always use UTF-8 because XMLHttpRequest normally uses this encoding
+        return "UTF-8";
     }
 
 }
