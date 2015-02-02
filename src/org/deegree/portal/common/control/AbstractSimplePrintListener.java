@@ -247,19 +247,18 @@ public abstract class AbstractSimplePrintListener extends AbstractListener {
         LOG.logDebug( "print map scale: ", scaleDenominator );
         // set text area values
         RPCMember[] members = param1.getMembers();
+        String charset = CharsetUtils.getSystemCharset();
         for ( int i = 0; i < members.length; i++ ) {
             if ( members[i].getName().startsWith( "TA:" ) ) {
                 String s = members[i].getName().substring( 3, members[i].getName().length() );
                 String val = (String) members[i].getValue();
-                if ( val != null ) {
-                    val = new String( val.getBytes(), CharsetUtils.getSystemCharset() );
-                }
+                if ( val != null )
+                    val = new String( val.getBytes( charset ), "UTF-8" );
                 LOG.logDebug( "text area name: ", s );
                 LOG.logDebug( "text area value: ", val );
                 parameter.put( s, val );
             }
         }
-
         XMLFragment xmlReport = jrxmlManipulator.manipulateJrxml( printMetadata, pathx, vc, parameterName2Legends );
         JasperReport jreport = getReport( xmlReport );
         if ( "application/pdf".equals( format ) ) {
