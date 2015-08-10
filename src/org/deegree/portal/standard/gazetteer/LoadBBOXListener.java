@@ -81,13 +81,7 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
         int index = ( (Number) param.get( "level" ) ).intValue();
         int hierarchyIndex = Integer.parseInt( (String) param.get( "hierarchyIndex" ) );
         String geographicIdentifier = (String) param.get( "geographicIdentifier" );
-        // if itemCount is not set or not valid, use default value
-        int itemCount;
-        try {
-            itemCount = Integer.parseInt( (String) param.get( "itemCount" ) );
-        } catch ( NumberFormatException e ) {
-            itemCount = 500;
-        }
+        int itemCount = parseItemCount( param );
 
         ViewContext vc = (ViewContext) event.getSession().getAttribute( Constants.CURRENTMAPCONTEXT );
         Module[] modules = vc.getGeneral().getExtension().getFrontend().getModulesByName( "Gazetteer" );
@@ -150,6 +144,15 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
         }
         responseHandler.writeAndClose( env.getMin().getX() + "," + env.getMin().getY() + "," + env.getMax().getX()
                                        + "," + env.getMax().getY() );
+    }
+
+    private int parseItemCount( Map<String, Object> param ) {
+        try {
+            // if itemCount is not set or not valid, use default value
+            return Integer.parseInt( (String) param.get( "itemCount" ) );
+        } catch ( NumberFormatException e ) {
+        }
+        return 500;
     }
 
 }
