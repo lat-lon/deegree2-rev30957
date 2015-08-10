@@ -86,6 +86,8 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
 
     private char singleChar;
     
+    private int itemCount;
+
     /**
      * 
      * @param gazetteerAddress
@@ -99,11 +101,12 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
      * @param phonetic
      *            if true soundex will be used for searching (gazetteer/featuetype must support this)
      * @param matchCase
+     * @param itemCount
      */
     FindItemsCommand( String gazetteerAddress, QualifiedName featureType, Map<String, String> properties,
-                      String searchString, boolean searchOnAltName, boolean strict, boolean phonetic, boolean matchCase ) {
+                      String searchString, boolean searchOnAltName, boolean strict, boolean phonetic, boolean matchCase, int itemCount ) {
         this( gazetteerAddress, featureType, properties, searchString, searchOnAltName, strict, phonetic, matchCase,
-              DEFAULT_ESCAPE_CHAR, DEFAULT_SINGLE_CHAR, DEFAULT_WILD_CARD );
+              DEFAULT_ESCAPE_CHAR, DEFAULT_SINGLE_CHAR, DEFAULT_WILD_CARD, itemCount );
     }
     
     /**
@@ -122,10 +125,11 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
      * @param escapeChar
      * @param singleChar
      * @param wildCard
+     * @param itemCount
      */
     FindItemsCommand( String gazetteerAddress, QualifiedName featureType, Map<String, String> properties,
                       String searchString, boolean searchOnAltName, boolean strict, boolean phonetic,
-                      boolean matchCase, char escapeChar, char singleChar, char wildCard ) {
+                      boolean matchCase, char escapeChar, char singleChar, char wildCard, int itemCount ) {
         this.gazetteerAddress = gazetteerAddress;
         this.featureType = featureType;
         this.searchString = searchString;
@@ -136,6 +140,7 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
         this.escapeChar = escapeChar;
         this.singleChar = singleChar;
         this.wildCard = wildCard;
+        this.itemCount = itemCount;
         escapeChar = singleChar;
         if ( !strict && !searchString.trim().equalsIgnoreCase( valueOf( wildCard ) ) ) {
             String escapedWildCard = valueOf( escapeChar ) + valueOf( wildCard );
@@ -192,9 +197,9 @@ public class FindItemsCommand extends AbstractGazetteerCommand {
 
         // create Query and GetFeature request
         Query query = Query.create( propertyNames, null, sp, null, null, new QualifiedName[] { featureType }, null,
-                                    null, filter, 500, 0, RESULT_TYPE.RESULTS );
+                                    null, filter, itemCount, 0, RESULT_TYPE.RESULTS );
         GetFeature getFeature = GetFeature.create( capabilities.getVersion(), UUID.randomUUID().toString(),
-                                                   RESULT_TYPE.RESULTS, GetFeature.FORMAT_GML3, null, 500, 0, -1, -1,
+                                                   RESULT_TYPE.RESULTS, GetFeature.FORMAT_GML3, null, itemCount, 0, -1, -1,
                                                    new Query[] { query } );
 
         // perform GetFeature request and create resulting GazetteerItems list

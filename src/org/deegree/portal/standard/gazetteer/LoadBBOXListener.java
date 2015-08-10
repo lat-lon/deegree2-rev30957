@@ -81,6 +81,13 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
         int index = ( (Number) param.get( "level" ) ).intValue();
         int hierarchyIndex = Integer.parseInt( (String) param.get( "hierarchyIndex" ) );
         String geographicIdentifier = (String) param.get( "geographicIdentifier" );
+        // if itemCount is not set or not valid, use default value
+        int itemCount;
+        try {
+            itemCount = Integer.parseInt( (String) param.get( "itemCount" ) );
+        } catch ( NumberFormatException e ) {
+            itemCount = 500;
+        }
 
         ViewContext vc = (ViewContext) event.getSession().getAttribute( Constants.CURRENTMAPCONTEXT );
         Module[] modules = vc.getGeneral().getExtension().getFrontend().getModulesByName( "Gazetteer" );
@@ -104,7 +111,7 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
         QualifiedName ft = node.getFeatureType();
         LoadBBOXCommand cmd = new LoadBBOXCommand( hierarchy.getGazetteerAddress(), ft, node.getProperties(),
                                                    geographicIdentifier, hierarchy.getEscapeChar(),
-                                                   hierarchy.getSingleChar(), hierarchy.getWildCard() );
+                                                   hierarchy.getSingleChar(), hierarchy.getWildCard(), itemCount );
         Envelope env = null;
         Pair<Geometry, Geometry> geometries = null;
         try {

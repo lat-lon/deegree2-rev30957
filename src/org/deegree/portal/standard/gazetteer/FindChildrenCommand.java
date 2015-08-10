@@ -64,6 +64,7 @@ import org.deegree.ogcwebservices.wfs.operation.GetFeature.RESULT_TYPE;
 public class FindChildrenCommand extends AbstractGazetteerCommand {
 
     private String geographicIdentifier;
+    private int itemCount;
 
     /**
      * 
@@ -71,13 +72,15 @@ public class FindChildrenCommand extends AbstractGazetteerCommand {
      * @param featureType
      * @param properties
      * @param geographicIdentifier
+     * @param itemCount
      */
     FindChildrenCommand( String gazetteerAddress, QualifiedName featureType, Map<String, String> properties,
-                         String geographicIdentifier ) {
+                         String geographicIdentifier, int itemCount ) {
         this.gazetteerAddress = gazetteerAddress;
         this.featureType = featureType;
         this.geographicIdentifier = geographicIdentifier;
         this.properties = properties;
+        this.itemCount = itemCount;
     }
 
     /*
@@ -111,9 +114,9 @@ public class FindChildrenCommand extends AbstractGazetteerCommand {
         PropertyPath[] propertyNames = getResultProperties( properties );
 
         Query query = Query.create( propertyNames, null, sp, null, null, new QualifiedName[] { featureType }, null,
-                                    null, filter, 500, 0, RESULT_TYPE.RESULTS );
+                                    null, filter, itemCount, 0, RESULT_TYPE.RESULTS );
         GetFeature getFeature = GetFeature.create( capabilities.getVersion(), UUID.randomUUID().toString(),
-                                                   RESULT_TYPE.RESULTS, GetFeature.FORMAT_GML3, null, 500, 0, -1, -1,
+                                                   RESULT_TYPE.RESULTS, GetFeature.FORMAT_GML3, null, itemCount, 0, -1, -1,
                                                    new Query[] { query } );
 
         // perform GetFeature request and create resulting GazetteerItems list
