@@ -38,10 +38,14 @@ package org.deegree.portal.standard.context.control;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
@@ -59,10 +63,21 @@ import org.deegree.framework.log.ILogger;
 import org.deegree.framework.log.LoggerFactory;
 import org.deegree.framework.util.StringTools;
 import org.deegree.framework.xml.XMLFragment;
+import org.deegree.framework.xml.XMLParsingException;
 import org.deegree.i18n.Messages;
+import org.deegree.model.crs.UnknownCRSException;
 import org.deegree.model.spatialschema.Envelope;
 import org.deegree.portal.Constants;
 import org.deegree.portal.PortalException;
+import org.deegree.portal.context.ContextException;
+import org.deegree.portal.context.Layer;
+import org.deegree.portal.context.LayerExtension;
+import org.deegree.portal.context.LayerGroup;
+import org.deegree.portal.context.LayerList;
+import org.deegree.portal.context.MMLayer;
+import org.deegree.portal.context.MapModel;
+import org.deegree.portal.context.MapModelEntry;
+import org.deegree.portal.context.Style;
 import org.deegree.portal.context.ViewContext;
 import org.deegree.portal.context.XMLFactory;
 import org.w3c.dom.Document;
@@ -125,9 +140,15 @@ public class ContextSaveListener extends AbstractContextListener {
      * @param event
      * @return name of the context that has been stored
      * @throws PortalException
+     * @throws ContextException
+     * @throws XMLParsingException
+     * @throws IOException
+     * @throws UnknownCRSException
+     * @throws ParserConfigurationException
      */
     private String storeContext( RPCWebEvent event )
-                            throws PortalException {
+                            throws PortalException, ParserConfigurationException, UnknownCRSException, IOException,
+                            XMLParsingException, ContextException {
 
         RPCMethodCall mc = event.getRPCMethodCall();
         RPCParameter[] pars = mc.getParameters();
@@ -140,17 +161,23 @@ public class ContextSaveListener extends AbstractContextListener {
         // access base context
         HttpSession session = ( (HttpServletRequest) getRequest() ).getSession();
         ViewContext vc = (ViewContext) session.getAttribute( Constants.CURRENTMAPCONTEXT );
+
+        String sid = RPCUtils.getRpcPropertyAsString( struct, "sessionID" );
+        vc = vc.clone( null, sid );
+
+        changeLayerList( vc );
+
         // change values: BBOX and Layer List
         Envelope bbox = extractBBox( (RPCStruct) struct.getMember( Constants.RPC_BBOX ).getValue(), null );
         changeBBox( vc, bbox );
-        RPCMember[] layerList = ( (RPCStruct) struct.getMember( "layerList" ).getValue() ).getMembers();
-        changeLayerList( vc, layerList );
+        // RPCMember[] layerList = ( (RPCStruct) struct.getMember( "layerList" ).getValue() ).getMembers();
+        // changeLayerList( vc, layerList );
 
         // save new context
         // get map context value
         String username = "default";
         try {
-            String sid = RPCUtils.getRpcPropertyAsString( struct, "sessionID" );
+
             LOG.logDebug( "sessionID ", sid );
             username = getUserName( sid );
             if ( username == null ) {
@@ -290,6 +317,56 @@ public class ContextSaveListener extends AbstractContextListener {
             throw new PortalException( Messages.getMessage( "IGEO_STD_CNTXT_ERROR_INTERNAL_SAVE",
                                                             StringTools.stackTraceToString( e.getStackTrace() ) ) );
         }
+    }
+
+    private void changeLayerList( ViewContext vc )
+                            throws ContextException {
+        LayerList layerList = createLayersList( vc );
+        vc.setLayerList( layerList );
+    }
+
+    private LayerList createLayersList( ViewContext vc ) {
+        List<Layer> layers = new ArrayList<Layer>();
+        MapModel mapModelEntries = vc.getGeneral().getExtension().getMapModel();
+        addLayersFromMapModel( vc, mapModelEntries.getMapModelEntries(), layers );
+        Layer[] layersArray = layers.toArray( new Layer[layers.size()] );
+        LayerList layerList = new LayerList( layersArray );
+        return layerList;
+    }
+
+    private void addLayersFromMapModel( ViewContext vc, List<MapModelEntry> mapModelEntries, List<Layer> layers ) {
+        for ( MapModelEntry mapModelEntry : mapModelEntries ) {
+            if ( mapModelEntry instanceof LayerGroup ) {
+                LayerGroup group = (LayerGroup) mapModelEntry;
+                List<MapModelEntry> subMapModelEntries = group.getMapModelEntries();
+                addLayersFromMapModel( vc, subMapModelEntries, layers );
+            } else if ( mapModelEntry instanceof MMLayer ) {
+                String identifier = mapModelEntry.getIdentifier();
+                Layer layer = editLayer( vc, identifier );
+                layers.add( layer );
+            }
+        }
+    }
+
+    private Layer editLayer( ViewContext vc, String identifier ) {
+        Layer layer = findLayerWithIdentifier( vc, identifier );
+        layer.setAbstract( null );
+        Style[] styles = layer.getStyleList().getStyles();
+        for ( Style style : styles ) {
+            style.setLegendURL( null );
+        }
+        layer.getExtension().setAuthentication( LayerExtension.SESSIONID );
+        return layer;
+    }
+
+    private Layer findLayerWithIdentifier( ViewContext vc, String identifier ) {
+        LayerList layerList = vc.getLayerList();
+        for ( Layer layer : layerList.getLayers() ) {
+            if ( identifier.equals( layer.getExtension().getIdentifier() ) ) {
+                return layer;
+            }
+        }
+        return null;
     }
 
 }
