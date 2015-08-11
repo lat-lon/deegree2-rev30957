@@ -76,7 +76,6 @@ public class FreeSearchListener extends AbstractGazetteerListener {
         int index = ( (Number) param.get( "level" ) ).intValue();
         int hierarchyIndex = Integer.parseInt( (String) param.get( "hierarchyIndex" ) );
         String searchString = (String) param.get( "searchString" );
-        int itemCount = parseItemCount( param );
 
         ViewContext vc = (ViewContext) event.getSession().getAttribute( Constants.CURRENTMAPCONTEXT );
         Module[] modules = vc.getGeneral().getExtension().getFrontend().getModulesByName( "Gazetteer" );
@@ -101,7 +100,7 @@ public class FreeSearchListener extends AbstractGazetteerListener {
         FindItemsCommand cmd = new FindItemsCommand( hierarchy.getGazetteerAddress(), ft, node.getProperties(),
                                                      searchString, true, node.isStricMode(), false, node.isMatchCase(),
                                                      hierarchy.getEscapeChar(), hierarchy.getSingleChar(),
-                                                     hierarchy.getWildCard(), itemCount );
+                                                     hierarchy.getWildCard(), hierarchy.getResultCount() );
         List<GazetteerItem> items;
         try {
             items = cmd.execute();
@@ -113,15 +112,6 @@ public class FreeSearchListener extends AbstractGazetteerListener {
         String charEnc = Charset.defaultCharset().displayName();
         responseHandler.setContentType( "application/json; charset=" + charEnc );
         responseHandler.writeAndClose( false, items );
-    }
-
-    private int parseItemCount( Map<String, Object> param ) {
-        try {
-            return Integer.parseInt( (String) param.get( "itemCount" ) );
-        } catch ( NumberFormatException e ) {
-            // if itemCount is not set or not valid, use default value
-        }
-        return 500;
     }
 
 }

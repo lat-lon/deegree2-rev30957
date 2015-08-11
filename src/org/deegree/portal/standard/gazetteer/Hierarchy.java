@@ -87,6 +87,8 @@ public class Hierarchy {
 
     private final char singleChar;
 
+    private final int resultCount;
+
     /**
      * <pre>
      * 
@@ -104,6 +106,7 @@ public class Hierarchy {
         escapeChar = parseAttributeAsChar( node, "escapeChar", DEFAULT_ESCAPE_CHAR );
         singleChar = parseAttributeAsChar( node, "singleChar", DEFAULT_SINGLE_CHAR );
         wildCard = parseAttributeAsChar( node, "wildCard", DEFAULT_WILD_CARD );
+        resultCount = parseAttributeAsInt( node, "resultCount", 500 );
 
         node = (Element) XMLTools.getNode( node, "Type", CommonNamespaces.getNamespaceContext() );
 
@@ -144,6 +147,13 @@ public class Hierarchy {
         String attributeValue = XMLTools.getAttrValue( node, null, attributeName, null );
         if ( attributeValue != null && attributeValue.length() > 0 )
             return attributeValue.charAt( 0 );
+        return defaultValue;
+    }
+
+    private int parseAttributeAsInt( Element node, String attributeName, int defaultValue ) {
+        String attributeValue = XMLTools.getAttrValue( node, null, attributeName, null );
+        if ( attributeValue != null && attributeValue.length() > 0 )
+            return Integer.parseInt( attributeValue );
         return defaultValue;
     }
 
@@ -213,6 +223,13 @@ public class Hierarchy {
      */
     public char getSingleChar() {
         return singleChar;
+    }
+
+    /**
+     * @return number of returned results
+     */
+    public int getResultCount() {
+        return resultCount;
     }
 
     /**

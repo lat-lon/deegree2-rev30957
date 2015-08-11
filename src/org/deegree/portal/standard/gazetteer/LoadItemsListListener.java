@@ -96,7 +96,7 @@ public class LoadItemsListListener extends AbstractGazetteerListener {
             k++;
         }
         QualifiedName ft = node.getFeatureType();
-        FindChildrenCommand cmd = new FindChildrenCommand(hierarchy.getGazetteerAddress(),ft,node.getProperties(),geographicIdentifier);
+        FindChildrenCommand cmd = new FindChildrenCommand(hierarchy.getGazetteerAddress(), ft, node.getProperties(), geographicIdentifier, hierarchy.getResultCount());
         List<GazetteerItem> items;
         try {
             items = cmd.execute();

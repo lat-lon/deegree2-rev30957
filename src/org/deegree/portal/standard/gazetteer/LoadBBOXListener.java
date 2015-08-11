@@ -81,7 +81,6 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
         int index = ( (Number) param.get( "level" ) ).intValue();
         int hierarchyIndex = Integer.parseInt( (String) param.get( "hierarchyIndex" ) );
         String geographicIdentifier = (String) param.get( "geographicIdentifier" );
-        int itemCount = parseItemCount( param );
 
         ViewContext vc = (ViewContext) event.getSession().getAttribute( Constants.CURRENTMAPCONTEXT );
         Module[] modules = vc.getGeneral().getExtension().getFrontend().getModulesByName( "Gazetteer" );
@@ -105,7 +104,7 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
         QualifiedName ft = node.getFeatureType();
         LoadBBOXCommand cmd = new LoadBBOXCommand( hierarchy.getGazetteerAddress(), ft, node.getProperties(),
                                                    geographicIdentifier, hierarchy.getEscapeChar(),
-                                                   hierarchy.getSingleChar(), hierarchy.getWildCard(), itemCount );
+                                                   hierarchy.getSingleChar(), hierarchy.getWildCard(), hierarchy.getResultCount() );
         Envelope env = null;
         Pair<Geometry, Geometry> geometries = null;
         try {
@@ -144,15 +143,6 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
         }
         responseHandler.writeAndClose( env.getMin().getX() + "," + env.getMin().getY() + "," + env.getMax().getX()
                                        + "," + env.getMax().getY() );
-    }
-
-    private int parseItemCount( Map<String, Object> param ) {
-        try {
-            // if itemCount is not set or not valid, use default value
-            return Integer.parseInt( (String) param.get( "itemCount" ) );
-        } catch ( NumberFormatException e ) {
-        }
-        return 500;
     }
 
 }
