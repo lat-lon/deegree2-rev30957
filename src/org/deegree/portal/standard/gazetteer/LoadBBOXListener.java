@@ -104,7 +104,7 @@ public class LoadBBOXListener extends AbstractGazetteerListener {
         QualifiedName ft = node.getFeatureType();
         LoadBBOXCommand cmd = new LoadBBOXCommand( hierarchy.getGazetteerAddress(), ft, node.getProperties(),
                                                    geographicIdentifier, hierarchy.getEscapeChar(),
-                                                   hierarchy.getSingleChar(), hierarchy.getWildCard() );
+                                                   hierarchy.getSingleChar(), hierarchy.getWildCard(), hierarchy.getResultCount() );
         Envelope env = null;
         Pair<Geometry, Geometry> geometries = null;
         try {

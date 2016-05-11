@@ -80,16 +80,19 @@ public class LoadBBOXCommand extends AbstractGazetteerCommand {
 
     private char wildCard;
 
+    private int itemCount;
+
     /**
      * 
      * @param gazetteerAddress
      * @param featureType
      * @param properties
      * @param geogrId
+     * @param itemCount
      */
-    LoadBBOXCommand( String gazetteerAddress, QualifiedName featureType, Map<String, String> properties, String geogrId ) {
+    LoadBBOXCommand( String gazetteerAddress, QualifiedName featureType, Map<String, String> properties, String geogrId, int itemCount ) {
         this( gazetteerAddress, featureType, properties, geogrId, DEFAULT_ESCAPE_CHAR, DEFAULT_SINGLE_CHAR,
-              DEFAULT_WILD_CARD );
+              DEFAULT_WILD_CARD, itemCount );
     }
 
     /**
@@ -100,9 +103,10 @@ public class LoadBBOXCommand extends AbstractGazetteerCommand {
      * @param escapeChar
      * @param singleChar
      * @param wildCard
+     * @param itemCount
      */
     LoadBBOXCommand( String gazetteerAddress, QualifiedName featureType, Map<String, String> properties,
-                     String geogrId, char escapeChar, char singleChar, char wildCard ) {
+                     String geogrId, char escapeChar, char singleChar, char wildCard, int itemCount ) {
         this.gazetteerAddress = gazetteerAddress;
         this.featureType = featureType;
         this.geogrId = geogrId;
@@ -110,6 +114,7 @@ public class LoadBBOXCommand extends AbstractGazetteerCommand {
         this.escapeChar = escapeChar;
         this.singleChar = singleChar;
         this.wildCard = wildCard;
+        this.itemCount = itemCount;
     }
 
     /**
@@ -142,9 +147,9 @@ public class LoadBBOXCommand extends AbstractGazetteerCommand {
 
         // create Query and GetFeature request
         Query query = Query.create( propertyNames, null, null, null, null, new QualifiedName[] { featureType }, null,
-                                    null, filter, 500, 0, RESULT_TYPE.RESULTS );
+                                    null, filter, itemCount, 0, RESULT_TYPE.RESULTS );
         GetFeature getFeature = GetFeature.create( capabilities.getVersion(), UUID.randomUUID().toString(),
-                                                   RESULT_TYPE.RESULTS, GetFeature.FORMAT_GML3, null, 500, 0, -1, -1,
+                                                   RESULT_TYPE.RESULTS, GetFeature.FORMAT_GML3, null, itemCount, 0, -1, -1,
                                                    new Query[] { query } );
 
         // perform GetFeature request and create resulting GazetteerItems list
