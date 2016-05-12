@@ -87,7 +87,7 @@ public class SetVisibilityTreeNodeListener extends AbstractListener {
         Layer[] layers = vc.getLayerList().getLayers();
         for ( Layer layer : layers ) {
             if ( !layer.isHidden() ) {
-                visibleLayers.add( new String[] {layer.getName(), layer.getServer().getOnlineResource().toExternalForm()} );
+                visibleLayers.add( new String[] {layer.getName(), layer.getExtension().getIdentifier(), layer.getServer().getOnlineResource().toExternalForm()} );
             }
         }
         String[][] tmp = visibleLayers.toArray( new String[visibleLayers.size()][] );
